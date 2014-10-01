@@ -61,32 +61,21 @@ namespace piksi
 
             MSG_OBS_HDR = 0x40, /**< Piksi  -> Host  */
 
-
             MSG_OBS = 0x41, /**< Piksi  -> Host  */
             MSG_OLD_OBS = 0x42, /**< Piksi  -> Host  */
             MSG_PACKED_OBS = 0x43,  /**< Piksi  -> Host  */
 
-
             MSG_BASE_POS = 0x44,
-
 
             MSG_TRACKING_STATE = 0x16, /**< Piksi  -> Host  */
             MSG_IAR_STATE = 0x19, /**< Piksi  -> Host  */
 
-
             MSG_THREAD_STATE = 0x17, /**< Piksi  -> Host  */
-
 
             MSG_UART_STATE = 0x18, /**< Piksi  -> Host  */
 
 
             MSG_ACQ_RESULT = 0x15, /**< Piksi  -> Host  */
-
-
-
-
-
-
 
             SBP_STARTUP = 0xFF00,
             SBP_HEARTBEAT = 0xFFFF,
@@ -98,9 +87,6 @@ namespace piksi
             SBP_BASELINE_NED = 0x0203,
             SBP_VEL_ECEF = 0x0204,
             SBP_VEL_NED = 0x0205,
-
-
-
         }
 
         const int MSG_OBS_HEADER_SEQ_SHIFT = 4;
@@ -117,11 +103,13 @@ namespace piksi
         {
             public u32 reserved; /**< Reserved */
         }
+
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         struct sbp_heartbeat_t
         {
             public u32 flags; /**< Status flags */
         }
+
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         struct sbp_gps_time_t
         {
@@ -154,7 +142,6 @@ namespace piksi
             public u8 flags;    /**< Status flags */
         }
 
-
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         struct sbp_pos_llh_t
         {
@@ -179,7 +166,6 @@ namespace piksi
             public u8 n_sats;   /**< Number of satellites used in solution */
             public u8 flags;    /**< Status flags */
         }
-
 
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         struct sbp_baseline_ned_t
@@ -218,6 +204,7 @@ namespace piksi
             public u8 n_sats;     /**< Number of satellites used in solution */
             public u8 flags;      /**< Status flags (reserved) */
         }
+
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         struct acq_result_msg_t
         {
@@ -226,6 +213,7 @@ namespace piksi
             public float cf;  /* Carr freq of best point. */
             public u8 prn;    /* PRN searched for. */
         }
+
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         struct msg_uart_state_t
         {
@@ -234,6 +222,7 @@ namespace piksi
             public uarts uart3;
             public latency_t obs_latency;
         }
+
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         struct uarts
         {
@@ -243,6 +232,7 @@ namespace piksi
             public u8 tx_buffer_level;
             public u8 rx_buffer_level;
         }
+
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         struct latency_t
         {
@@ -252,7 +242,6 @@ namespace piksi
             public s32 current;
         }
 
-
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         struct msg_thread_state_t
         {
@@ -261,11 +250,13 @@ namespace piksi
             public u16 cpu;
             public u32 stack_free;
         }
+
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         struct msg_iar_state_t
         {
             public u32 num_hyps;
         }
+
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         struct msg_base_pos_t
         {
@@ -273,6 +264,7 @@ namespace piksi
             public double pos_lon;
             public double pos_alt;
         }
+
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         struct msg_obs_content_t
         {
@@ -288,6 +280,7 @@ namespace piksi
                   0-64 range) */
             public u8 prn;    /**< Satellite number. */
         }
+
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         struct msg_obs_header_t
         {
@@ -301,6 +294,7 @@ namespace piksi
             public u8 seq;     /**< First nibble is the size of the sequence (n), second
                    nibble is the zero-indexed counter (ith packet of n) */
         }
+
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         struct msg_obs_hdr_t
         {
@@ -317,7 +311,6 @@ namespace piksi
             public float cn0; /**< SNR of the tracking channel. */
         }
 
-
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         struct header
         {
@@ -328,7 +321,6 @@ namespace piksi
             public byte[] payload;
             public UInt16 crc; // - preamble
         }
-
 
         /** Value specifying the size of the SBP framing */
         public const int SBP_FRAMING_SIZE_BYTES = 8;
