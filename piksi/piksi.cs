@@ -257,7 +257,7 @@ namespace piksi
         struct msg_thread_state_t
         {
             [MarshalAs(UnmanagedType.ByValArray, SizeConst = 20)]
-           public char[] name; //[20]
+            public char[] name; //[20]
             public u16 cpu;
             public u32 stack_free;
         }
@@ -309,10 +309,10 @@ namespace piksi
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         struct tracking_state_msg_t
         {
-  public u8 state;  /**< State of the tracking channel. */
-  public u8 prn;    /**< PRN being tracked by the tracking channel. */
-  public float cn0; /**< SNR of the tracking channel. */
-} ;
+            public u8 state;  /**< State of the tracking channel. */
+            public u8 prn;    /**< PRN being tracked by the tracking channel. */
+            public float cn0; /**< SNR of the tracking channel. */
+        }
 
 
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
