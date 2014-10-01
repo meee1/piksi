@@ -336,6 +336,10 @@ namespace piksi
 
         int length = 0;
 
+        Crc16Ccitt crc;
+
+        ushort crcpacket = 0;
+
         public void read(byte data)
         {
             switch (state)
@@ -346,6 +350,8 @@ namespace piksi
                         state++;
                         msg = new header();
                         msg.preamble = data;
+                        crc = new Crc16Ccitt(InitialCrcValue.Zeros);
+                        crcpacket = (ushort)InitialCrcValue.Zeros;
                     }
                     else
                     {
@@ -354,22 +360,27 @@ namespace piksi
                     break;
                 case 1:
                     msg.msgtype = (u16)(data);
+                    crcpacket = crc.Accumulate(data, crcpacket);
                     state++;
                     break;
                 case 2:
                     msg.msgtype = (u16)(msg.msgtype + (data << 8));
+                    crcpacket = crc.Accumulate(data, crcpacket);
                     state++;
                     break;
                 case 3:
                     msg.sender = (u16)(data);
+                    crcpacket = crc.Accumulate(data, crcpacket);
                     state++;
                     break;
                 case 4:
                     msg.sender = (u16)(msg.sender + (data << 8));
+                    crcpacket = crc.Accumulate(data, crcpacket);
                     state++;
                     break;
                 case 5:
                     msg.length = data;
+                    crcpacket = crc.Accumulate(data, crcpacket);
                     msg.payload = new u8[msg.length];
                     length = 0;
                     state++;
@@ -383,6 +394,7 @@ namespace piksi
                     else
                     {
                         msg.payload[length] = data;
+                        crcpacket = crc.Accumulate(data, crcpacket);
                         length++;
                     }
                     break;
@@ -394,37 +406,41 @@ namespace piksi
                     msg.crc = (u16)(msg.crc + (data << 8));
                     state = 0;
 
-                    Console.WriteLine((MSG)msg.msgtype + " " + msg.length + " " + msg.sender);
-
-                    if ((MSG)msg.msgtype == MSG.MSG_PRINT)
+                    if (msg.crc == crcpacket)
                     {
-                        Console.WriteLine(ASCIIEncoding.ASCII.GetString(msg.payload));
-                    }
 
-                    if ((MSG)msg.msgtype == MSG.MSG_TRACKING_STATE)
-                    {
-                        int len = Marshal.SizeOf(new tracking_state_msg_t());
+                        Console.WriteLine((MSG)msg.msgtype + " " + msg.length + " " + msg.sender);
 
-                        for (int a = 0; a < msg.length; a += len)
+                        if ((MSG)msg.msgtype == MSG.MSG_PRINT)
                         {
-                            var test = msg.payload.ByteArrayToStructure<tracking_state_msg_t>(a);
-
-                            Console.WriteLine(test.prn + " " + test.state + " " + test.cn0);
+                            Console.WriteLine(ASCIIEncoding.ASCII.GetString(msg.payload));
                         }
-                                             
-                    }
 
-                    if ((MSG)msg.msgtype == MSG.MSG_UART_STATE)
-                    {
-                        var test = msg.payload.ByteArrayToStructure<msg_uart_state_t>(0);
+                        if ((MSG)msg.msgtype == MSG.MSG_TRACKING_STATE)
+                        {
+                            int len = Marshal.SizeOf(new tracking_state_msg_t());
 
-                        Console.WriteLine("uart1 "+test.uart1.tx_throughput + " uart2 "+test.uart2.tx_throughput);
-                    }
+                            for (int a = 0; a < msg.length; a += len)
+                            {
+                                var test = msg.payload.ByteArrayToStructure<tracking_state_msg_t>(a);
 
-                    if ((MSG)msg.msgtype == MSG.MSG_THREAD_STATE)
-                    {
-                        var test = msg.payload.ByteArrayToStructure<msg_thread_state_t>(0);
-                        Console.WriteLine(new String(test.name) + " cpu " + test.cpu + " stackfree " + test.stack_free);
+                                Console.WriteLine(test.prn + " " + test.state + " " + test.cn0);
+                            }
+
+                        }
+
+                        if ((MSG)msg.msgtype == MSG.MSG_UART_STATE)
+                        {
+                            var test = msg.payload.ByteArrayToStructure<msg_uart_state_t>(0);
+
+                            Console.WriteLine("uart1 " + test.uart1.tx_throughput + " uart2 " + test.uart2.tx_throughput);
+                        }
+
+                        if ((MSG)msg.msgtype == MSG.MSG_THREAD_STATE)
+                        {
+                            var test = msg.payload.ByteArrayToStructure<msg_thread_state_t>(0);
+                            Console.WriteLine(new String(test.name) + " cpu " + test.cpu + " stackfree " + test.stack_free);
+                        }
                     }
 
                     break;
