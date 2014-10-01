@@ -415,7 +415,7 @@ namespace piksi
                     if (msg.crc == crcpacket)
                     {
 
-                        //Console.WriteLine((MSG)msg.msgtype + " " + msg.length + " " + msg.sender);
+                        Console.WriteLine((MSG)msg.msgtype + " " + msg.length + " " + msg.sender);
 
                         if ((MSG)msg.msgtype == MSG.SBP_GPS_TIME)
                         {
@@ -499,7 +499,7 @@ namespace piksi
 
                         if ((MSG)msg.msgtype == MSG.MSG_PRINT)
                         {
-                            //Console.WriteLine(ASCIIEncoding.ASCII.GetString(msg.payload));
+                            Console.Write(ASCIIEncoding.ASCII.GetString(msg.payload));
                         }
 
                         if ((MSG)msg.msgtype == MSG.MSG_TRACKING_STATE)
@@ -525,7 +525,7 @@ namespace piksi
                         if ((MSG)msg.msgtype == MSG.MSG_THREAD_STATE)
                         {
                             var test = msg.payload.ByteArrayToStructure<msg_thread_state_t>(0);
-                            //Console.WriteLine(new String(test.name) + " cpu " + test.cpu + " stackfree " + test.stack_free);
+                            Console.WriteLine(new String(test.name) + " cpu " + test.cpu/10.0 + " stackfree " + test.stack_free);
                         }
                     }
 

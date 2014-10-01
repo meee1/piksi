@@ -33,10 +33,12 @@ namespace piksi
 
             while (true) 
             {
-                if (comport.BytesToRead > 0)
+                while (comport.BytesToRead > 0)
                 {
                     pk.read((byte)comport.ReadByte());
                 }
+
+                System.Threading.Thread.Sleep(5);
             }
 
             Console.ReadLine();
