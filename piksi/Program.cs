@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Ports;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -11,6 +12,11 @@ namespace piksi
     {
         static void Main(string[] args)
         {
+            SerialPort comport = new SerialPort("com31", 1000000);
+
+            comport.Open();
+
+            /*
             BinaryReader sr = new BinaryReader(File.OpenRead(@"H:\piksi.raw"));
 
             piksi pk = new piksi();
@@ -20,7 +26,18 @@ namespace piksi
                 pk.read((byte)sr.ReadByte());
             }
 
-            sr.Close();
+            //sr.Close();
+            */
+
+            piksi pk = new piksi();
+
+            while (true) 
+            {
+                if (comport.BytesToRead > 0)
+                {
+                    pk.read((byte)comport.ReadByte());
+                }
+            }
 
             Console.ReadLine();
         }
