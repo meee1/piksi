@@ -83,15 +83,6 @@ namespace piksi
             MSG_ACQ_RESULT = 0x15, /**< Piksi  -> Host  */
 
 
-            //MSG_OBS_HEADER_SEQ_SHIFT = 4u,
-            //MSG_OBS_HEADER_SEQ_MASK =((1 << 4u) - 1),
-            //MSG_OBS_HEADER_MAX_SIZE =MSG_OBS_HEADER_SEQ_MASK,
-            //MSG_OBS_TOW_MULTIPLIER = ((double)1000.0),
-
-            //MSG_OBS_P_MULTIPLIER = ((double)1e2),
-            //MSG_OBS_SNR_MULTIPLIER = ((float)4),
-            //MSG_OSB_LF_MULTIPLIER = ((double)(1 << 8)),
-
 
 
 
@@ -111,6 +102,15 @@ namespace piksi
 
 
         }
+
+        const uint MSG_OBS_HEADER_SEQ_SHIFT = 4u;
+        const uint MSG_OBS_HEADER_SEQ_MASK =((1 << 4) - 1);
+        uint MSG_OBS_HEADER_MAX_SIZE = MSG_OBS_HEADER_SEQ_MASK;
+        const double MSG_OBS_TOW_MULTIPLIER = ((double)1000.0);
+
+        const double MSG_OBS_P_MULTIPLIER = ((double)1e2);
+        const float MSG_OBS_SNR_MULTIPLIER = ((float)4);
+        const double MSG_OSB_LF_MULTIPLIER = ((double)(1 << 8));
 
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         struct sbp_startup_t
@@ -278,11 +278,12 @@ namespace piksi
         {
             public u32 P;     /**< Pseudorange (cm) */
             [StructLayout(LayoutKind.Sequential, Pack = 1)]
-            public struct L
+            public struct Ls
             {
                 public s32 Li;  /**< Carrier phase (integer seconds) */
                 public u8 Lf;   /**< Carrier phase (scaled fractional seconds) */
             }        /**< Fixed point carrier phase (seconds) */
+            public Ls L;
             public u8 snr;    /**< Signal-to-Noise ratio (cn0 * 4 for 0.25 precision and
                   0-64 range) */
             public u8 prn;    /**< Satellite number. */
@@ -290,11 +291,12 @@ namespace piksi
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         struct msg_obs_header_t
         {
-            public struct t
+            public struct ts
             {
                 public u32 tow;  /**< milliseconds since start of week. */
                 public u16 wn;   /**< GPS Week Numer. */
             }       /**< Compcated millisecond-accurate GPS time. */
+            public ts t;
             public u8 seq;     /**< First nibble is the size of the sequence (n), second
                    nibble is the zero-indexed counter (ith packet of n) */
         }
@@ -413,6 +415,76 @@ namespace piksi
                     {
 
                         Console.WriteLine((MSG)msg.msgtype + " " + msg.length + " " + msg.sender);
+
+                        if ((MSG)msg.msgtype == MSG.SBP_GPS_TIME)
+                        {
+                            var test = msg.payload.ByteArrayToStructure<sbp_gps_time_t>(0);
+
+                            Console.WriteLine(test.wn + " " + test.tow);
+                        }
+
+                        if ((MSG)msg.msgtype == MSG.SBP_POS_LLH)
+                        {
+                            var test = msg.payload.ByteArrayToStructure<sbp_pos_llh_t>(0);
+
+                            Console.WriteLine(test.lat + " " + test.lon + " " + test.height);
+                        }
+
+                        if ((MSG)msg.msgtype == MSG.SBP_POS_ECEF)
+                        {
+                            var test = msg.payload.ByteArrayToStructure<sbp_pos_ecef_t>(0);
+
+                            Console.WriteLine(test.x + " " + test.y + " " + test.z);
+                        }
+
+                        if ((MSG)msg.msgtype == MSG.SBP_VEL_NED)
+                        {
+                            var test = msg.payload.ByteArrayToStructure<sbp_vel_ned_t>(0);
+
+                            Console.WriteLine(test.n + " " + test.e + " " + test.d);
+                        }
+
+                        if ((MSG)msg.msgtype == MSG.SBP_VEL_ECEF)
+                        {
+                            var test = msg.payload.ByteArrayToStructure<sbp_vel_ecef_t>(0);
+
+                            Console.WriteLine(test.x + " " + test.y + " " + test.z);
+                        }
+
+                        if ((MSG)msg.msgtype == MSG.SBP_BASELINE_NED)
+                        {
+                            var test = msg.payload.ByteArrayToStructure<sbp_baseline_ned_t>(0);
+
+                            Console.WriteLine(test.n + " " + test.e + " " + test.d);
+                        }
+
+                        if ((MSG)msg.msgtype == MSG.SBP_BASELINE_ECEF)
+                        {
+                            var test = msg.payload.ByteArrayToStructure<sbp_baseline_ecef_t>(0);
+
+                            Console.WriteLine(test.x + " " + test.y + " " + test.z);
+                        }
+
+                        if ((MSG)msg.msgtype == MSG.MSG_PACKED_OBS)
+                        {
+                            var test = msg.payload.ByteArrayToStructure<msg_obs_header_t>(0);
+
+                            int total = (int)test.seq >> (int)MSG_OBS_HEADER_SEQ_SHIFT;
+                            uint count = test.seq & MSG_OBS_HEADER_SEQ_MASK;
+
+                            int len = Marshal.SizeOf(test);
+
+                            var ob = msg.payload.ByteArrayToStructure<msg_obs_content_t>(len+1);
+
+                            
+                        }
+
+                        if ((MSG)msg.msgtype == MSG.MSG_IAR_STATE)
+                        {
+                            var test = msg.payload.ByteArrayToStructure<msg_iar_state_t>(0);
+
+                            Console.WriteLine(test.num_hyps);
+                        }
 
                         if ((MSG)msg.msgtype == MSG.MSG_PRINT)
                         {
