@@ -12,7 +12,7 @@ namespace piksi
     public class Crc16Ccitt
     {
         const ushort poly = 4129;
-        ushort[] table = new ushort[256];
+        static ushort[] table;
         ushort initialValue = 0;
 
         public ushort Accumulate(byte data, ushort crc)
@@ -41,24 +41,28 @@ namespace piksi
         public Crc16Ccitt(InitialCrcValue initialValue)
         {
             this.initialValue = (ushort)initialValue;
-            ushort temp, a;
-            for (int i = 0; i < table.Length; i++)
+            if (table == null)
             {
-                temp = 0;
-                a = (ushort)(i << 8);
-                for (int j = 0; j < 8; j++)
+                table = new ushort[256];
+                ushort temp, a;
+                for (int i = 0; i < table.Length; i++)
                 {
-                    if (((temp ^ a) & 0x8000) != 0)
+                    temp = 0;
+                    a = (ushort)(i << 8);
+                    for (int j = 0; j < 8; j++)
                     {
-                        temp = (ushort)((temp << 1) ^ poly);
+                        if (((temp ^ a) & 0x8000) != 0)
+                        {
+                            temp = (ushort)((temp << 1) ^ poly);
+                        }
+                        else
+                        {
+                            temp <<= 1;
+                        }
+                        a <<= 1;
                     }
-                    else
-                    {
-                        temp <<= 1;
-                    }
-                    a <<= 1;
+                    table[i] = temp;
                 }
-                table[i] = temp;
             }
         }
     }

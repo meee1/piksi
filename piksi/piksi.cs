@@ -314,10 +314,6 @@ namespace piksi
   public float cn0; /**< SNR of the tracking channel. */
 } ;
 
-        /** Value specifying the size of the SBP framing */
-        public const int SBP_FRAMING_SIZE_BYTES = 8;
-        /** Value defining maximum SBP packet size */
-        public const int SBP_FRAMING_MAX_PAYLOAD_SIZE = 255;
 
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         struct header
@@ -330,6 +326,13 @@ namespace piksi
             public UInt16 crc; // - preamble
         }
 
+
+        /** Value specifying the size of the SBP framing */
+        public const int SBP_FRAMING_SIZE_BYTES = 8;
+        /** Value defining maximum SBP packet size */
+        public const int SBP_FRAMING_MAX_PAYLOAD_SIZE = 255;
+
+        // packet read step state
         int state = 0;
 
         header msg = new header();
