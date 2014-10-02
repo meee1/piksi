@@ -338,6 +338,8 @@ namespace piksi
 
         ushort crcpacket = 0;
 
+        int currentobsid = 0;
+
         public void read(byte data)
         {
             switch (state)
@@ -419,6 +421,12 @@ namespace piksi
 
                             //Console.WriteLine(test.lat + " " + test.lon + " " + test.height);
                         }
+                        else if ((MSG)msg.msgtype == MSG.SBP_DOPS)
+                        {
+                            var test = msg.payload.ByteArrayToStructure<sbp_dops_t>(0);
+
+                            //Console.WriteLine(test.lat + " " + test.lon + " " + test.height);
+                        }
                         else if ((MSG)msg.msgtype == MSG.SBP_POS_ECEF)
                         {
                             var test = msg.payload.ByteArrayToStructure<sbp_pos_ecef_t>(0);
@@ -451,22 +459,28 @@ namespace piksi
                         }
                         else if ((MSG)msg.msgtype == MSG.MSG_PACKED_OBS)
                         {
-                            var test = msg.payload.ByteArrayToStructure<msg_obs_header_t>(0);
 
-                            int total = (int)test.seq >> (int)MSG_OBS_HEADER_SEQ_SHIFT;
-                            int count = test.seq & MSG_OBS_HEADER_SEQ_MASK;
+                            var hdr = msg.payload.ByteArrayToStructure<msg_obs_header_t>(0);
 
-                            Console.WriteLine(total + " " + count);
+                            // total is number of packets
+                            int total = hdr.seq >> MSG_OBS_HEADER_SEQ_SHIFT;
+                            // this is packet count number
+                            int count = hdr.seq & MSG_OBS_HEADER_SEQ_MASK;
 
-                            int len = Marshal.SizeOf(test);
+                            int lenhdr = Marshal.SizeOf(hdr);
 
                             int lenobs = Marshal.SizeOf(new msg_obs_content_t());
 
-                            int obscount = (msg.length - len) / lenobs;
+                            int obscount = (msg.length - lenhdr) / lenobs;
+
+                            int linebase = (count > 0) ? 8 : 0;
 
                             for (int a = 0; a < obscount; a++)
                             {
-                                var ob = msg.payload.ByteArrayToStructure<msg_obs_content_t>(len + a * lenobs);
+                                var ob = msg.payload.ByteArrayToStructure<msg_obs_content_t>(lenhdr + a * lenobs);
+
+                                Console.SetCursorPosition(0, 15 + a + linebase);
+
                                 Console.WriteLine(ob.prn + "\t" + (ob.snr / MSG_OBS_SNR_MULTIPLIER) + "\t" + (ob.P / MSG_OBS_P_MULTIPLIER));
                             }
 
@@ -480,7 +494,7 @@ namespace piksi
                         }
                         else if ((MSG)msg.msgtype == MSG.MSG_PRINT)
                         {
-                            Console.SetCursorPosition(0,20);
+                            Console.SetCursorPosition(0,14);
                             Console.Write(ASCIIEncoding.ASCII.GetString(msg.payload));
                         }
                         else if ((MSG)msg.msgtype == MSG.MSG_TRACKING_STATE)
@@ -501,7 +515,7 @@ namespace piksi
                         {
                             var test = msg.payload.ByteArrayToStructure<msg_uart_state_t>(0);
 
-                            Console.SetCursorPosition(0, 19);
+                            Console.SetCursorPosition(0, 13);
                             Console.WriteLine("uart3 " + test.uart3.tx_throughput + " uart2 " + test.uart2.tx_throughput + "   ");
                         }
                         else if ((MSG)msg.msgtype == MSG.MSG_THREAD_STATE)
@@ -516,12 +530,9 @@ namespace piksi
                         }
                         else
                         {
-
                             Console.WriteLine((MSG)msg.msgtype + " " + msg.length + " " + msg.sender);
-
                         }
                     }
-
                     break;
             }
         }
