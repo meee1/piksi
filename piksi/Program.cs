@@ -12,7 +12,7 @@ namespace piksi
     {
         static void Main(string[] args)
         {
-            SerialPort comport = new SerialPort("com31", 1000000);
+            SerialPort comport = new SerialPort("com9", 1000000);
 
             comport.Open();
 

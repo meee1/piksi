@@ -90,7 +90,7 @@ namespace piksi
         }
 
         const int MSG_OBS_HEADER_SEQ_SHIFT = 4;
-        const int MSG_OBS_HEADER_SEQ_MASK =((1 << 4) - 1);
+        const int MSG_OBS_HEADER_SEQ_MASK = ((1 << 4) - 1);
         uint MSG_OBS_HEADER_MAX_SIZE = MSG_OBS_HEADER_SEQ_MASK;
         const double MSG_OBS_TOW_MULTIPLIER = ((double)1000.0);
 
@@ -407,58 +407,49 @@ namespace piksi
                     if (msg.crc == crcpacket)
                     {
 
-                        Console.WriteLine((MSG)msg.msgtype + " " + msg.length + " " + msg.sender);
-
                         if ((MSG)msg.msgtype == MSG.SBP_GPS_TIME)
                         {
                             var test = msg.payload.ByteArrayToStructure<sbp_gps_time_t>(0);
 
                             //Console.WriteLine(test.wn + " " + test.tow);
                         }
-
-                        if ((MSG)msg.msgtype == MSG.SBP_POS_LLH)
+                        else if ((MSG)msg.msgtype == MSG.SBP_POS_LLH)
                         {
                             var test = msg.payload.ByteArrayToStructure<sbp_pos_llh_t>(0);
 
                             //Console.WriteLine(test.lat + " " + test.lon + " " + test.height);
                         }
-
-                        if ((MSG)msg.msgtype == MSG.SBP_POS_ECEF)
+                        else if ((MSG)msg.msgtype == MSG.SBP_POS_ECEF)
                         {
                             var test = msg.payload.ByteArrayToStructure<sbp_pos_ecef_t>(0);
 
-                           // Console.WriteLine(test.x + " " + test.y + " " + test.z);
+                            // Console.WriteLine(test.x + " " + test.y + " " + test.z);
                         }
-
-                        if ((MSG)msg.msgtype == MSG.SBP_VEL_NED)
+                        else if ((MSG)msg.msgtype == MSG.SBP_VEL_NED)
                         {
                             var test = msg.payload.ByteArrayToStructure<sbp_vel_ned_t>(0);
 
                             //Console.WriteLine(test.n + " " + test.e + " " + test.d);
                         }
-
-                        if ((MSG)msg.msgtype == MSG.SBP_VEL_ECEF)
+                        else if ((MSG)msg.msgtype == MSG.SBP_VEL_ECEF)
                         {
                             var test = msg.payload.ByteArrayToStructure<sbp_vel_ecef_t>(0);
 
                             //Console.WriteLine(test.x + " " + test.y + " " + test.z);
                         }
-
-                        if ((MSG)msg.msgtype == MSG.SBP_BASELINE_NED)
+                        else if ((MSG)msg.msgtype == MSG.SBP_BASELINE_NED)
                         {
                             var test = msg.payload.ByteArrayToStructure<sbp_baseline_ned_t>(0);
 
                             //Console.WriteLine(test.n + " " + test.e + " " + test.d);
                         }
-
-                        if ((MSG)msg.msgtype == MSG.SBP_BASELINE_ECEF)
+                        else if ((MSG)msg.msgtype == MSG.SBP_BASELINE_ECEF)
                         {
                             var test = msg.payload.ByteArrayToStructure<sbp_baseline_ecef_t>(0);
 
-                           // Console.WriteLine(test.x + " " + test.y + " " + test.z);
+                            // Console.WriteLine(test.x + " " + test.y + " " + test.z);
                         }
-
-                        if ((MSG)msg.msgtype == MSG.MSG_PACKED_OBS)
+                        else if ((MSG)msg.msgtype == MSG.MSG_PACKED_OBS)
                         {
                             var test = msg.payload.ByteArrayToStructure<msg_obs_header_t>(0);
 
@@ -479,22 +470,20 @@ namespace piksi
                                 Console.WriteLine(ob.prn + "\t" + (ob.snr / MSG_OBS_SNR_MULTIPLIER) + "\t" + (ob.P / MSG_OBS_P_MULTIPLIER));
                             }
 
-                            
-                        }
 
-                        if ((MSG)msg.msgtype == MSG.MSG_IAR_STATE)
+                        }
+                        else if ((MSG)msg.msgtype == MSG.MSG_IAR_STATE)
                         {
                             var test = msg.payload.ByteArrayToStructure<msg_iar_state_t>(0);
 
                             //Console.WriteLine(test.num_hyps);
                         }
-
-                        if ((MSG)msg.msgtype == MSG.MSG_PRINT)
+                        else if ((MSG)msg.msgtype == MSG.MSG_PRINT)
                         {
+                            Console.SetCursorPosition(0,20);
                             Console.Write(ASCIIEncoding.ASCII.GetString(msg.payload));
                         }
-
-                        if ((MSG)msg.msgtype == MSG.MSG_TRACKING_STATE)
+                        else if ((MSG)msg.msgtype == MSG.MSG_TRACKING_STATE)
                         {
                             int len = Marshal.SizeOf(new tracking_state_msg_t());
 
@@ -502,22 +491,34 @@ namespace piksi
                             {
                                 var test = msg.payload.ByteArrayToStructure<tracking_state_msg_t>(a);
 
-                                //Console.WriteLine(test.prn + " " + test.state + " " + test.cn0);
+                                Console.SetCursorPosition(50, a / len);
+
+                                Console.WriteLine(test.prn + "\t" + test.state + " " + test.cn0 + "         ");
                             }
 
                         }
-
-                        if ((MSG)msg.msgtype == MSG.MSG_UART_STATE)
+                        else if ((MSG)msg.msgtype == MSG.MSG_UART_STATE)
                         {
                             var test = msg.payload.ByteArrayToStructure<msg_uart_state_t>(0);
 
-                           // Console.WriteLine("uart1 " + test.uart1.tx_throughput + " uart2 " + test.uart2.tx_throughput);
+                            Console.SetCursorPosition(0, 19);
+                            Console.WriteLine("uart3 " + test.uart3.tx_throughput + " uart2 " + test.uart2.tx_throughput + "   ");
                         }
-
-                        if ((MSG)msg.msgtype == MSG.MSG_THREAD_STATE)
+                        else if ((MSG)msg.msgtype == MSG.MSG_THREAD_STATE)
                         {
                             var test = msg.payload.ByteArrayToStructure<msg_thread_state_t>(0);
-                            Console.WriteLine(new String(test.name) + " cpu " + test.cpu/10.0 + " stackfree " + test.stack_free);
+                            Console.WriteLine(new String(test.name) + " cpu " + test.cpu / 10.0 + "\tstackfree " + test.stack_free + "   ");
+                        }
+                        else if ((MSG)msg.msgtype == MSG.SBP_HEARTBEAT)
+                        {
+                            //Console.Clear();
+                            Console.SetCursorPosition(0, 0);
+                        }
+                        else
+                        {
+
+                            Console.WriteLine((MSG)msg.msgtype + " " + msg.length + " " + msg.sender);
+
                         }
                     }
 
