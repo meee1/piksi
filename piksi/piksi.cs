@@ -528,6 +528,12 @@ namespace piksi
                             //Console.Clear();
                             Console.SetCursorPosition(0, 0);
                         }
+                        else if ((MSG)msg.msgtype == MSG.MSG_ACQ_RESULT)
+                        {
+                            var test = msg.payload.ByteArrayToStructure<acq_result_msg_t>(0);
+                            Console.SetCursorPosition(0, 17);
+                            Console.WriteLine("aqn " + test.prn + " " + test.snr + " " + test.cp + " " + test.cf);
+                        }
                         else
                         {
                             Console.WriteLine((MSG)msg.msgtype + " " + msg.length + " " + msg.sender);
