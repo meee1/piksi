@@ -178,30 +178,7 @@ namespace piksi
             public List<ob> obs = new List<ob>();
 
             public uint nbits = 0;
-
-            public class ob
-            {
-                public u8 prn;
-                public double pr;
-                public double cp;
-                public u8 snr;
-                public int week;
-                public double tow;
-
-                public rawrtcm raw = new rawrtcm();
-
-                public class rawrtcm
-                {
-                    public byte prn;
-                    public byte code;
-                    public u32 pr1;
-                    public s32 ppr1;
-                    public byte lock1;
-                    public byte amb;
-                    public byte cnr1;
-                }
-            }
-
+            
             public void Read(byte[] buffer)
             {
                 uint i = 24;
@@ -237,7 +214,7 @@ namespace piksi
                     ob.week = week;
 
                     ob.raw.prn = (byte)getbitu(buffer, i, 6); i += 6;
-                    ob.raw.code = (byte)getbitu(buffer, i, 1); i += 1;
+                    ob.raw.code1 = (byte)getbitu(buffer, i, 1); i += 1;
                     ob.raw.pr1 = getbitu(buffer, i, 24); i += 24;
                     ob.raw.ppr1 = getbits(buffer, i, 20); i += 20;
                     ob.raw.lock1 = (byte)getbitu(buffer, i, 7); i += 7;
@@ -296,40 +273,42 @@ namespace piksi
             }
         }
 
+        public class ob
+        {
+            public u8 prn;
+            public double pr;
+            public double cp;
+            public u8 snr;
+            public int week;
+            public double tow;
+
+            public rawrtcm raw = new rawrtcm();
+
+            public class rawrtcm
+            {
+                public byte prn;
+                public byte code1;
+                public u32 pr1;
+                public s32 ppr1;
+                public byte lock1;
+                public byte amb;
+                public byte cnr1;
+
+                public byte code2;
+                public s32 pr21;
+                public s32 ppr2;
+                public byte lock2;
+                public byte cnr2;
+            }
+        }
+
         public class type1004
         {
             public List<ob> obs = new List<ob>();
 
             public uint nbits = 0;
 
-            public class ob
-            {
-                public u8 prn;
-                public double pr;
-                public double cp;
-                public u8 snr;
-                public int week;
-                public double tow;
-
-                public rawrtcm raw = new rawrtcm();
-
-                public class rawrtcm
-                {
-                    public byte prn;
-                    public byte code1;
-                    public u32 pr1;
-                    public s32 ppr1;
-                    public byte lock1;
-                    public byte amb;
-                    public byte cnr1;
-
-                    public byte code2;
-                    public s32 pr21;
-                    public s32 ppr2;
-                    public byte lock2;
-                    public byte cnr2;
-                }
-            }
+            
 
             public void Read(byte[] buffer)
             {
@@ -519,12 +498,18 @@ namespace piksi
                             uint crc2 = crc24q(test, len, 0);
                             setbitu(test, tp.nbits + rem, 24, crc2);
                             */
+
+                            if (ObsMessage != null)
+                                ObsMessage(tp.obs, null);
                         }
                         if (head.messageno == 1004)
                         {
                             type1004 tp = new type1004();
 
                             tp.Read(packet);
+
+                            if (ObsMessage != null)
+                                ObsMessage(tp.obs, null);
                         }
                     }
 

@@ -18,14 +18,27 @@ namespace piksi
 
         static TcpClient client;
 
+        static SerialPort comport;
+
         static void Main(string[] args)
         {
+            if (args.Length != 3)
+            {
+                Console.WriteLine("Usage: program.exe outputformat port baud");
+                Console.WriteLine("outputformat = rtcm,sbp\nport = [comport of piksi]\nbaud = [baudrate of piksi]");
+                Console.WriteLine("the application will output data on port 989");
+                return;
+            }
+
+            string mode = args[0];
+            string port = args[1];
+            int baudrate = int.Parse(args[2]);
+
             listener.Start();
 
             listener.BeginAcceptTcpClient(new AsyncCallback(DoAcceptTcpClientCallback), listener);
 
-            //rtcm.gen_rtcm();
-
+            /*
             BinaryReader br = new BinaryReader(File.OpenRead(@"C:\Users\hog\Desktop\gps data\rtcm3.11004.raw"));
 
             while (br.BaseStream.Position < br.BaseStream.Length)
@@ -34,40 +47,71 @@ namespace piksi
             }
 
             return;
+            */
 
-            SerialPort comport = new SerialPort("com37", 115200);
-            //SerialPort comport = new SerialPort("com15", 115200);
+            comport = new SerialPort(args[1], int.Parse(args[2]));
 
             comport.Open();
 
-            /*
-            BinaryReader sr = new BinaryReader(File.OpenRead(@"H:\piksi.raw"));
-
             piksi pk = new piksi();
 
-            while (sr.BaseStream.Position < sr.BaseStream.Length)
+            // sbp to rtcm
+            if (mode.ToLower() == "rtcm")
             {
-                pk.read((byte)sr.ReadByte());
+                pk.ObsMessage += pk_ObsMessage;
+
+                while (true)
+                {
+                    while (comport.BytesToRead > 0)
+                    {
+                        pk.read((byte)comport.ReadByte());
+                    }
+
+                    System.Threading.Thread.Sleep(5);
+                }
             }
 
-            //sr.Close();
-            */
-
-            piksi pk = new piksi();
-
-            pk.ObsMessage += pk_ObsMessage;
-
-            while (true) 
+            if (mode.ToLower() == "sbp")
             {
-                while (comport.BytesToRead > 0)
+                rtcm.ObsMessage += rtcm_ObsMessage;
+                while (true)
                 {
-                    pk.read((byte)comport.ReadByte());
-                }
+                    while (comport.BytesToRead > 0)
+                    {
+                        rtcm.Read((byte)comport.ReadByte());
+                    }
 
-                System.Threading.Thread.Sleep(5);
+                    System.Threading.Thread.Sleep(5);
+                }
             }
 
             Console.ReadLine();
+        }
+
+        static void rtcm_ObsMessage(object sender, EventArgs e)
+        {
+            List<RTCM3.ob> msg = (List<RTCM3.ob>)sender;
+
+            byte total = 1;
+            byte count = 1;
+
+            piksi.msg_obs_header_t head = new piksi.msg_obs_header_t();
+            head.seq = (byte)((total << piksi.MSG_OBS_HEADER_SEQ_SHIFT) | (count & piksi.MSG_OBS_HEADER_SEQ_MASK));
+            head.t.wn = (ushort)(msg[0].week);
+            head.t.tow = (uint)(msg[0].tow  * piksi.MSG_OBS_TOW_MULTIPLIER);
+
+            List<piksi.msg_obs_content_t> obs = new List<piksi.msg_obs_content_t>();
+
+            foreach (var item in msg)
+            {
+                piksi.msg_obs_content_t ob = new piksi.msg_obs_content_t();
+                ob.prn = item.prn;
+                ob.P = (uint)(item.pr * piksi.MSG_OBS_P_MULTIPLIER);
+                ob.L.Li = (int)item.cp;
+                ob.L.Lf = (byte)((item.cp - ob.L.Li) * 256.0);
+                ob.snr = (byte)(item.snr * piksi.MSG_OBS_SNR_MULTIPLIER);
+            }
+
         }
 
      private static void DoAcceptTcpClientCallback(IAsyncResult ar)
@@ -114,7 +158,7 @@ namespace piksi
             {
                 var ob = msg.payload.ByteArrayToStructure<piksi.msg_obs_content_t>(lenhdr + a * lenobs);
 
-                RTCM3.type1002.ob rtcmob = new RTCM3.type1002.ob();
+                RTCM3.ob rtcmob = new RTCM3.ob();
 
                 rtcmob.prn = ob.prn;
                 rtcmob.snr = (byte)(ob.snr);
