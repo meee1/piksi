@@ -45,6 +45,7 @@
     <Compile Include="piksi.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="RTCM3.cs" />
     <Compile Include="StaticUtils.cs" />
   </ItemGroup>
   <ItemGroup>

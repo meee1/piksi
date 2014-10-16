@@ -12,6 +12,20 @@ namespace piksi
     {
         static void Main(string[] args)
         {
+
+            RTCM3 rtcm = new RTCM3();
+
+            rtcm.gen_rtcm();
+
+            BinaryReader br = new BinaryReader(File.OpenRead(@"C:\Users\hog\Desktop\gps data\rtcm3.1.raw"));
+
+            while (br.BaseStream.Position < br.BaseStream.Length)
+            {
+                rtcm.Read(br.ReadByte());
+            }
+
+            return;
+
             SerialPort comport = new SerialPort("com31", 1000000);
             //SerialPort comport = new SerialPort("com15", 115200);
 
