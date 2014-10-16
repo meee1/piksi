@@ -15,6 +15,8 @@ namespace piksi
 {
     public class piksi
     {
+        public event EventHandler ObsMessage;
+
         public enum MSG
         {
             MSG_PRINT = 0x10, /**< Piksi  -> Host  */
@@ -89,14 +91,14 @@ namespace piksi
             SBP_VEL_NED = 0x0205,
         }
 
-        const int MSG_OBS_HEADER_SEQ_SHIFT = 4;
-        const int MSG_OBS_HEADER_SEQ_MASK = ((1 << 4) - 1);
-        uint MSG_OBS_HEADER_MAX_SIZE = MSG_OBS_HEADER_SEQ_MASK;
-        const double MSG_OBS_TOW_MULTIPLIER = ((double)1000.0);
+        public const int MSG_OBS_HEADER_SEQ_SHIFT = 4;
+        public const int MSG_OBS_HEADER_SEQ_MASK = ((1 << 4) - 1);
+        public uint MSG_OBS_HEADER_MAX_SIZE = MSG_OBS_HEADER_SEQ_MASK;
+        public const double MSG_OBS_TOW_MULTIPLIER = ((double)1000.0);
 
-        const double MSG_OBS_P_MULTIPLIER = ((double)1e2);
-        const float MSG_OBS_SNR_MULTIPLIER = ((float)4);
-        const double MSG_OSB_LF_MULTIPLIER = ((double)(1 << 8));
+        public const double MSG_OBS_P_MULTIPLIER = ((double)1e2);
+        public const float MSG_OBS_SNR_MULTIPLIER = ((float)4);
+        public const double MSG_OSB_LF_MULTIPLIER = ((double)(1 << 8));
 
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         struct sbp_startup_t
@@ -266,7 +268,7 @@ namespace piksi
         }
 
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
-        struct msg_obs_content_t
+        public struct msg_obs_content_t
         {
             public u32 P;     /**< Pseudorange (cm) */
             [StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -282,7 +284,7 @@ namespace piksi
         }
 
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
-        struct msg_obs_header_t
+        public struct msg_obs_header_t
         {
             [StructLayout(LayoutKind.Sequential, Pack = 1)]
             public struct ts
@@ -312,7 +314,7 @@ namespace piksi
         }
 
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
-        struct header
+        public struct header
         {
             public byte preamble; // 0x55
             public UInt16 msgtype;
@@ -481,10 +483,11 @@ namespace piksi
 
                                 Console.SetCursorPosition(0, 15 + a + linebase);
 
-                                Console.WriteLine(ob.prn + "\t" + (ob.snr / MSG_OBS_SNR_MULTIPLIER) + "\t" + (ob.P / MSG_OBS_P_MULTIPLIER));
+                                Console.WriteLine(ob.prn + "\t" + (ob.snr / MSG_OBS_SNR_MULTIPLIER) + "\t" + (ob.P / MSG_OBS_P_MULTIPLIER) + "\t" + (ob.L.Li + (ob.L.Lf / 256.0)) + "    ");
                             }
 
-
+                            if (ObsMessage != null)
+                                ObsMessage(msg, null);
                         }
                         else if ((MSG)msg.msgtype == MSG.MSG_IAR_STATE)
                         {

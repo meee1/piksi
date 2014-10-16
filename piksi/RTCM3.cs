@@ -388,7 +388,7 @@ namespace piksi
             }
         }
 
-        public void gen_rtcm()
+        public byte[] gen_rtcm(type1002 obs)
         {
             byte[] buffer = new u8[300];
 
@@ -397,16 +397,16 @@ namespace piksi
             uint nbit = 0;
             uint nbyte = 0;
 
-
             rtcmpreamble pre = new rtcmpreamble();
             pre.Write(buffer);
 
             rtcmheader head = new rtcmheader();
+            head.messageno = 1002;
+            head.nsat = (byte)obs.obs.Count;
+            head.epoch = (u32)obs.obs[0].tow;
             head.Write(buffer);
 
-            type1002 t1002 = new type1002();
-
-            nbit = t1002.Write(buffer);
+            nbit = obs.Write(buffer);
 
             /* padding to align 8 bit boundary */
             for (i = nbit; (i % 8) > 0; i++)
@@ -416,7 +416,7 @@ namespace piksi
             {
                 /*trace(2,"generate rtcm 3 message length error len=%d\n",rtcm->len-3);*/
                 nbit = len = 0;
-                return;
+                return null;
             }
             /* message length without header and parity */
             setbitu(buffer, 14, 10, len - 3);
@@ -429,6 +429,8 @@ namespace piksi
             nbyte = len + 3;
 
             Array.Resize<byte>(ref buffer, (int)nbyte);
+
+            return buffer;
         }
 
 
