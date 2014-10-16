@@ -532,7 +532,7 @@ namespace piksi
                         {
                             var test = msg.payload.ByteArrayToStructure<acq_result_msg_t>(0);
                             Console.SetCursorPosition(0, 17);
-                            Console.WriteLine("aqn " + test.prn + " " + test.snr + " " + test.cp + " " + test.cf);
+                            Console.WriteLine("aqn\t" + test.prn + "\t" + test.snr.ToString("0.00") + "\t" + test.cp + "\t" + test.cf + "\t\t");
                         }
                         else
                         {
