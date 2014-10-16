@@ -14,6 +14,8 @@ namespace piksi
 {
     public class RTCM3
     {
+        public event EventHandler ObsMessage;
+
         const byte RTCM3PREAMB = 0xD3;
         const double PRUNIT_GPS = 299792.458; /* rtcm ver.3 unit of gps pseudorange (m) */
         const double CLIGHT = 299792458.0;        /* speed of light (m/s) */
@@ -294,6 +296,147 @@ namespace piksi
             }
         }
 
+        public class type1004
+        {
+            public List<ob> obs = new List<ob>();
+
+            public uint nbits = 0;
+
+            public class ob
+            {
+                public u8 prn;
+                public double pr;
+                public double cp;
+                public u8 snr;
+                public int week;
+                public double tow;
+
+                public rawrtcm raw = new rawrtcm();
+
+                public class rawrtcm
+                {
+                    public byte prn;
+                    public byte code1;
+                    public u32 pr1;
+                    public s32 ppr1;
+                    public byte lock1;
+                    public byte amb;
+                    public byte cnr1;
+
+                    public byte code2;
+                    public s32 pr21;
+                    public s32 ppr2;
+                    public byte lock2;
+                    public byte cnr2;
+                }
+            }
+
+            public void Read(byte[] buffer)
+            {
+                uint i = 24;
+
+                u32 type = getbitu(buffer, i, 12); i += 12;
+
+                u32 staid = getbitu(buffer, i, 12); i += 12;
+                double tow = getbitu(buffer, i, 30) * 0.001; i += 30;
+                u32 sync = getbitu(buffer, i, 1); i += 1;
+                u32 nsat = getbitu(buffer, i, 5);
+
+                i = 24 + 64;
+
+                int week = 0;
+                double seconds = 0;
+
+                // asumes current week
+                GetFromTime(DateTime.Now, ref week, ref seconds);
+
+                // if tow is larger than the calced curretn time, go back one week
+                if (tow > seconds)
+                    week--;
+
+                DateTime gpstime = GetFromGps(week, tow);
+
+                Console.WriteLine("> {0} {1} {2} {3,2} {4} {5} {6} {7}", gpstime.Year, gpstime.Month, gpstime.Day, gpstime.Hour, gpstime.Minute, gpstime.Second + (gpstime.Millisecond / 1000.0), 0, nsat);
+
+                for (int a = 0; a < nsat; a++)
+                {
+                    ob ob = new ob();
+
+                    ob.tow = tow;
+                    ob.week = week;
+
+                    ob.raw.prn = (byte)getbitu(buffer, i, 6); i += 6;
+                    ob.raw.code1 = (byte)getbitu(buffer, i, 1); i += 1;
+                    ob.raw.pr1 = getbitu(buffer, i, 24); i += 24;
+                    ob.raw.ppr1 = getbits(buffer, i, 20); i += 20;
+                    ob.raw.lock1 = (byte)getbitu(buffer, i, 7); i += 7;
+                    ob.raw.amb = (byte)getbitu(buffer, i, 8); i += 8;
+                    ob.raw.cnr1 = (byte)getbitu(buffer, i, 8); i += 8;
+                    ob.raw.code2 = (byte)getbitu(buffer, i, 2); i += 2;
+                    ob.raw.pr21 = getbits(buffer, i, 14); i += 14;
+                    ob.raw.ppr2 = getbits(buffer, i, 20); i += 20;
+                    ob.raw.lock2 = (byte)getbitu(buffer, i, 7); i += 7;
+                    ob.raw.cnr2 = (byte)getbitu(buffer, i, 8); i += 8;
+
+                    double pr1 = ob.raw.pr1 * 0.02 + ob.raw.amb * PRUNIT_GPS;
+
+                    double lam1 = CLIGHT / FREQ1;
+
+                    double cp1 = ob.raw.ppr1 * 0.0005 / lam1;
+
+                    if (ob.raw.ppr1 != 0xFFF80000)
+                    {
+                        ob.prn = ob.raw.prn;
+                        ob.cp = pr1 / lam1 + cp1;
+                        ob.pr = pr1;
+                        ob.snr = (byte)(ob.raw.cnr1 * 0.25); // *4.0+0.5
+
+                        obs.Add(ob);
+
+                        Console.WriteLine("G{0,2}  {1}   {2}                         {3}", ob.prn.ToString(), ob.pr.ToString("0.000"), ob.cp.ToString("0.0000"), ob.snr.ToString("0.000"));
+                    }
+                }
+
+                nbits = i;
+            }
+
+            public uint Write(byte[] buffer)
+            {
+                uint i = 24 + 64;
+
+                foreach (ob ob in obs)
+                {
+                    double lam1 = CLIGHT / FREQ1;
+
+                    int amb = (int)Math.Floor(ob.pr / PRUNIT_GPS);
+                    double pr1 = ROUND((ob.pr - amb * PRUNIT_GPS) / 0.02);
+                    double pr1c = pr1 * 0.02 + amb * PRUNIT_GPS;
+
+                    double ppr = cp_pr(ob.cp, pr1c / lam1);
+                    double ppr1 = ROUND(ppr * lam1 / 0.0005);
+
+                    setbitu(buffer, i, 6, ob.prn); i += 6;
+                    setbitu(buffer, i, 1, (u8)0); i += 1;
+                    setbitu(buffer, i, 24, (u32)(pr1)); i += 24;
+                    setbits(buffer, i, 20, (s32)(ppr1)); i += 20;
+                    setbitu(buffer, i, 7, (u8)(ob.raw.lock1)); i += 7;
+                    setbitu(buffer, i, 8, (u8)(amb)); i += 8;
+                    setbitu(buffer, i, 8, (u8)(ob.snr * 4)); i += 8;
+                    // l2 - all 0's
+                    setbitu(buffer, i, 2, ob.raw.code2); i += 2;
+                    setbits(buffer, i, 14, ob.raw.pr21); i += 14;
+                    setbits(buffer, i, 20, ob.raw.ppr2); i += 20;
+                    setbitu(buffer, i, 7, ob.raw.lock2); i += 7;
+                    setbitu(buffer, i, 8, ob.raw.cnr2); i += 8;
+                }
+
+                nbits = i;
+
+                return i;
+            }
+        }
+
+
         int step = 0;
 
         byte[] packet = new u8[300];
@@ -363,7 +506,7 @@ namespace piksi
                             type1002 tp = new type1002();
 
                             tp.Read(packet);
-
+                            /*
                             byte[] test = new byte[300];
 
                             pre.Write(test);
@@ -375,11 +518,13 @@ namespace piksi
 
                             uint crc2 = crc24q(test, len, 0);
                             setbitu(test, tp.nbits + rem, 24, crc2);
-
+                            */
                         }
-                        if (head.messageno == 1003)
+                        if (head.messageno == 1004)
                         {
+                            type1004 tp = new type1004();
 
+                            tp.Read(packet);
                         }
                     }
 

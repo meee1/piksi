@@ -26,14 +26,14 @@ namespace piksi
 
             //rtcm.gen_rtcm();
 
-            BinaryReader br = new BinaryReader(File.OpenRead(@"C:\Users\hog\Desktop\gps data\rtcm3.1.raw"));
+            BinaryReader br = new BinaryReader(File.OpenRead(@"C:\Users\hog\Desktop\gps data\rtcm3.11004.raw"));
 
             while (br.BaseStream.Position < br.BaseStream.Length)
             {
                 rtcm.Read(br.ReadByte());
             }
 
-         //   return;
+            return;
 
             SerialPort comport = new SerialPort("com37", 115200);
             //SerialPort comport = new SerialPort("com15", 115200);
