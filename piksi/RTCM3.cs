@@ -279,7 +279,7 @@ namespace piksi
                     double ppr = cp_pr(ob.cp, pr1c / lam1);
                     double ppr1 = ROUND(ppr * lam1 / 0.0005);
 
-                    setbitu(buffer, i, 6, ob.raw.prn); i += 6;
+                    setbitu(buffer, i, 6, ob.prn); i += 6;
                     setbitu(buffer, i, 1, (u8)0); i += 1;
                     setbitu(buffer, i, 24, (u32)(pr1)); i += 24;
                     setbits(buffer, i, 20, (s32)(ppr1)); i += 20;
