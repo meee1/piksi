@@ -20,6 +20,8 @@ namespace piksi
 
         static SerialPort comport;
 
+        static piksi pk = new piksi();
+
         static void Main(string[] args)
         {
             if (args.Length != 3)
@@ -30,7 +32,7 @@ namespace piksi
                 return;
             }
 
-            string mode = args[0];
+            string outmode = args[0];
             string port = args[1];
             int baudrate = int.Parse(args[2]);
 
@@ -53,10 +55,10 @@ namespace piksi
 
             comport.Open();
 
-            piksi pk = new piksi();
+           
 
             // sbp to rtcm
-            if (mode.ToLower() == "rtcm")
+            if (outmode.ToLower() == "rtcm")
             {
                 pk.ObsMessage += pk_ObsMessage;
 
@@ -71,14 +73,14 @@ namespace piksi
                 }
             }
 
-            if (mode.ToLower() == "sbp")
+            if (outmode.ToLower() == "sbp")
             {
                 rtcm.ObsMessage += rtcm_ObsMessage;
                 while (true)
                 {
-                    while (comport.BytesToRead > 0)
+                    while (client != null && client.Available > 0)
                     {
-                        rtcm.Read((byte)comport.ReadByte());
+                        rtcm.Read((byte)client.GetStream().ReadByte());
                     }
 
                     System.Threading.Thread.Sleep(5);
@@ -93,7 +95,7 @@ namespace piksi
             List<RTCM3.ob> msg = (List<RTCM3.ob>)sender;
 
             byte total = 1;
-            byte count = 1;
+            byte count = 0;
 
             piksi.msg_obs_header_t head = new piksi.msg_obs_header_t();
             head.seq = (byte)((total << piksi.MSG_OBS_HEADER_SEQ_SHIFT) | (count & piksi.MSG_OBS_HEADER_SEQ_MASK));
@@ -112,6 +114,61 @@ namespace piksi
                 ob.snr = (byte)(item.snr * piksi.MSG_OBS_SNR_MULTIPLIER);
             }
 
+
+            //create piksi packet
+
+            piksi.header msgpreamble = new piksi.header();
+
+            int lenpre = Marshal.SizeOf(msgpreamble) - 1; // 8
+            int lenhdr = Marshal.SizeOf(head);
+            int lenobs = Marshal.SizeOf(new piksi.msg_obs_content_t());
+
+            byte[] allbytes = new byte[lenpre + lenhdr + lenobs * obs.Count];
+
+            msgpreamble.crc = 0x1234;
+            msgpreamble.preamble = 0x55;
+            msgpreamble.msgtype = (ushort)piksi.MSG.MSG_PACKED_OBS;
+            msgpreamble.sender = 1;
+            msgpreamble.length = (byte)(obs.Count * lenobs + lenhdr);
+            msgpreamble.payload = new byte[msgpreamble.length];
+
+            int payloadcount = (lenpre-2) + lenhdr; // exclude checksum
+
+            foreach (var ob in obs)
+            {
+                byte[] obbytes = StaticUtils.StructureToByteArray(ob);
+                Array.Copy(obbytes, 0, allbytes, payloadcount, obbytes.Length);
+                payloadcount += lenobs;
+            }
+
+            byte[] preamblebytes = StaticUtils.StructureToByteArray(msgpreamble);
+
+            Array.Copy(preamblebytes, 0, allbytes, 0, preamblebytes.Length-2);
+
+            byte[] headbytes = StaticUtils.StructureToByteArray(head);
+
+            Array.Copy(headbytes, 0, allbytes, lenpre-2, headbytes.Length);
+
+            Crc16Ccitt crc = new Crc16Ccitt(InitialCrcValue.Zeros);
+            ushort crcpacket = 0;
+            for (int i = 1; i < (allbytes.Length-2); i++)
+            {
+                crcpacket = crc.Accumulate(allbytes[i], crcpacket);
+            }
+
+            allbytes[allbytes.Length - 2] = (byte)(crcpacket & 0xff);
+            allbytes[allbytes.Length - 1] = (byte)((crcpacket >> 8) & 0xff);
+
+
+            //Console.WriteLine();
+            comport.Write(allbytes, 0, allbytes.Length);
+
+            //foreach (var ch in allbytes)
+            {
+              //  pk.read(ch);
+            }
+
+            //Console.ReadLine();
         }
 
      private static void DoAcceptTcpClientCallback(IAsyncResult ar)

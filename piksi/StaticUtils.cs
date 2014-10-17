@@ -5,94 +5,102 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace piksi
+static class StaticUtils
 {
-    static class StaticUtils
+
+    public static TPacket ByteArrayToStructure<TPacket>(this byte[] bytearray, int startoffset) where TPacket : struct
+    {
+        object newPacket = new TPacket();
+        ByteArrayToStructure(bytearray, ref newPacket, startoffset);
+        return (TPacket)newPacket;
+    }
+
+    public static void ByteArrayToStructure(byte[] bytearray, ref object obj, int startoffset)
+    {
+        int len = Marshal.SizeOf(obj);
+
+        IntPtr i = Marshal.AllocHGlobal(len);
+
+        // create structure from ptr
+        obj = Marshal.PtrToStructure(i, obj.GetType());
+
+        try
+        {
+            // copy byte array to ptr
+            Marshal.Copy(bytearray, startoffset, i, len);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("ByteArrayToStructure FAIL " + ex.Message);
+        }
+
+        obj = Marshal.PtrToStructure(i, obj.GetType());
+
+        Marshal.FreeHGlobal(i);
+    }
+
+    public static void ByteArrayToStructureEndian(byte[] bytearray, ref object obj, int startoffset)
     {
 
-        public static TPacket ByteArrayToStructure<TPacket>(this byte[] bytearray, int startoffset) where TPacket : struct
+        int len = Marshal.SizeOf(obj);
+        IntPtr i = Marshal.AllocHGlobal(len);
+        byte[] temparray = (byte[])bytearray.Clone();
+
+        // create structure from ptr
+        obj = Marshal.PtrToStructure(i, obj.GetType());
+
+        // do endian swap
+        object thisBoxed = obj;
+        Type test = thisBoxed.GetType();
+
+        int reversestartoffset = startoffset;
+
+        // Enumerate each structure field using reflection.
+        foreach (var field in test.GetFields())
         {
-            object newPacket = new TPacket();
-            ByteArrayToStructure(bytearray, ref newPacket, startoffset);
-            return (TPacket)newPacket;
-        }
+            // field.Name has the field's name.
+            object fieldValue = field.GetValue(thisBoxed); // Get value
 
-        public static void ByteArrayToStructure(byte[] bytearray, ref object obj, int startoffset)
-        {
-            int len = Marshal.SizeOf(obj);
+            // Get the TypeCode enumeration. Multiple types get mapped to a common typecode.
+            TypeCode typeCode = Type.GetTypeCode(fieldValue.GetType());
 
-            IntPtr i = Marshal.AllocHGlobal(len);
-
-            // create structure from ptr
-            obj = Marshal.PtrToStructure(i, obj.GetType());
-
-            try
+            if (typeCode != TypeCode.Object)
             {
-                // copy byte array to ptr
-                Marshal.Copy(bytearray, startoffset, i, len);
+                Array.Reverse(temparray, reversestartoffset, Marshal.SizeOf(fieldValue));
+                reversestartoffset += Marshal.SizeOf(fieldValue);
             }
-            catch (Exception ex)
+            else
             {
-                Console.WriteLine("ByteArrayToStructure FAIL " + ex.Message);
+                reversestartoffset += ((byte[])fieldValue).Length;
             }
-
-            obj = Marshal.PtrToStructure(i, obj.GetType());
-
-            Marshal.FreeHGlobal(i);
-        }
-
-        public static void ByteArrayToStructureEndian(byte[] bytearray, ref object obj, int startoffset)
-        {
-
-            int len = Marshal.SizeOf(obj);
-            IntPtr i = Marshal.AllocHGlobal(len);
-            byte[] temparray = (byte[])bytearray.Clone();
-
-            // create structure from ptr
-            obj = Marshal.PtrToStructure(i, obj.GetType());
-
-            // do endian swap
-            object thisBoxed = obj;
-            Type test = thisBoxed.GetType();
-
-            int reversestartoffset = startoffset;
-
-            // Enumerate each structure field using reflection.
-            foreach (var field in test.GetFields())
-            {
-                // field.Name has the field's name.
-                object fieldValue = field.GetValue(thisBoxed); // Get value
-
-                // Get the TypeCode enumeration. Multiple types get mapped to a common typecode.
-                TypeCode typeCode = Type.GetTypeCode(fieldValue.GetType());
-
-                if (typeCode != TypeCode.Object)
-                {
-                    Array.Reverse(temparray, reversestartoffset, Marshal.SizeOf(fieldValue));
-                    reversestartoffset += Marshal.SizeOf(fieldValue);
-                }
-                else
-                {
-                    reversestartoffset += ((byte[])fieldValue).Length;
-                }
-
-            }
-
-            try
-            {
-                // copy byte array to ptr
-                Marshal.Copy(temparray, startoffset, i, len);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine("ByteArrayToStructure FAIL" + ex.ToString());
-            }
-
-            obj = Marshal.PtrToStructure(i, obj.GetType());
-
-            Marshal.FreeHGlobal(i);
 
         }
 
+        try
+        {
+            // copy byte array to ptr
+            Marshal.Copy(temparray, startoffset, i, len);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("ByteArrayToStructure FAIL" + ex.ToString());
+        }
+
+        obj = Marshal.PtrToStructure(i, obj.GetType());
+
+        Marshal.FreeHGlobal(i);
+
+    }
+
+    public static byte[] StructureToByteArray(object obj, int extralen = 0)
+    {
+        int len = Marshal.SizeOf(obj);
+        len += extralen;
+        byte[] arr = new byte[len];
+        IntPtr ptr = Marshal.AllocHGlobal(len);
+        Marshal.StructureToPtr(obj, ptr, true);
+        Marshal.Copy(ptr, arr, 0, len);
+        Marshal.FreeHGlobal(ptr);
+        return arr;
     }
 }

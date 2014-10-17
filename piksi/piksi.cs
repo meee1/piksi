@@ -320,6 +320,7 @@ namespace piksi
             public UInt16 msgtype;
             public UInt16 sender;
             public byte length; // payload length
+            [MarshalAs(UnmanagedType.ByValArray)]
             public byte[] payload;
             public UInt16 crc; // - preamble
         }
@@ -339,8 +340,6 @@ namespace piksi
         Crc16Ccitt crc;
 
         ushort crcpacket = 0;
-
-        int currentobsid = 0;
 
         public void read(byte data)
         {
@@ -541,6 +540,10 @@ namespace piksi
                         {
                             Console.WriteLine((MSG)msg.msgtype + " " + msg.length + " " + msg.sender);
                         }
+                    }
+                    else
+                    {
+                        Console.WriteLine("sbp crc fail");
                     }
                     break;
             }
