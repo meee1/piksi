@@ -112,6 +112,8 @@ namespace piksi
                 ob.L.Li = (int)item.cp;
                 ob.L.Lf = (byte)((item.cp - ob.L.Li) * 256.0);
                 ob.snr = (byte)(item.snr * piksi.MSG_OBS_SNR_MULTIPLIER);
+
+                obs.Add(ob);
             }
 
 
@@ -165,7 +167,7 @@ namespace piksi
 
             //foreach (var ch in allbytes)
             {
-              //  pk.read(ch);
+               // pk.read(ch);
             }
 
             //Console.ReadLine();
