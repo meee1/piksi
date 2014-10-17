@@ -16,7 +16,11 @@ namespace piksi
 
         static TcpListener listener = new TcpListener(989);
 
+        static TcpListener listenerraw = new TcpListener(990);
+
         static TcpClient client;
+
+        static TcpClient clientraw;
 
         static SerialPort comport;
 
@@ -40,12 +44,27 @@ namespace piksi
 
             listener.BeginAcceptTcpClient(new AsyncCallback(DoAcceptTcpClientCallback), listener);
 
+            listenerraw.Start();
+
+            listenerraw.BeginAcceptTcpClient(new AsyncCallback(DoAcceptTcpClientCallbackraw), listenerraw);
+
             /*
             BinaryReader br = new BinaryReader(File.OpenRead(@"C:\Users\hog\Desktop\gps data\rtcm3.11004.raw"));
 
             while (br.BaseStream.Position < br.BaseStream.Length)
             {
                 rtcm.Read(br.ReadByte());
+            }
+
+            return;
+            */
+
+            /*
+            BinaryReader br = new BinaryReader(File.OpenRead(@"C:\Users\hog\Desktop\gps data\sbp.raw"));
+
+            while (br.BaseStream.Position < br.BaseStream.Length)
+            {
+                pk.read(br.ReadByte());
             }
 
             return;
@@ -83,6 +102,17 @@ namespace piksi
                         rtcm.Read((byte)client.GetStream().ReadByte());
                     }
 
+                    while (comport.BytesToRead > 0)
+                    {
+                        try {
+                            byte[] data = new byte[1000];
+                            int len = comport.Read(data,0,data.Length);
+                            if (clientraw != null && clientraw.Connected)
+                                clientraw.GetStream().Write(data, 0, len);
+                            //pk.read((byte)comport.ReadByte());
+                        } catch {}
+                    }
+
                     System.Threading.Thread.Sleep(5);
                 }
             }
@@ -94,20 +124,36 @@ namespace piksi
         {
             List<RTCM3.ob> msg = (List<RTCM3.ob>)sender;
 
+            if (msg.Count == 0)
+                return;
+
             byte total = 1;
             byte count = 0;
 
             piksi.msg_obs_header_t head = new piksi.msg_obs_header_t();
             head.seq = (byte)((total << piksi.MSG_OBS_HEADER_SEQ_SHIFT) | (count & piksi.MSG_OBS_HEADER_SEQ_MASK));
             head.t.wn = (ushort)(msg[0].week);
-            head.t.tow = (uint)(msg[0].tow  * piksi.MSG_OBS_TOW_MULTIPLIER);
+            head.t.tow = (uint)((msg[0].tow * piksi.MSG_OBS_TOW_MULTIPLIER));
+
+            double addextra = (10 - head.t.tow % 10);
+
+            //head.t.tow += (uint)addextra;
+
+            double soln_freq = 10;
+            double obs_output_divisor = 2;
+
+            double epoch_count = (head.t.tow / piksi.MSG_OBS_TOW_MULTIPLIER) * (soln_freq / obs_output_divisor);
+
+            double checkleft = Math.Abs(epoch_count - Math.Round(epoch_count));
+
+            Console.WriteLine(head.t.tow + " " + checkleft.ToString("0.000") + " " + epoch_count.ToString("0.000") + " " + Math.Round(epoch_count) + " > " + 1e-3);
 
             List<piksi.msg_obs_content_t> obs = new List<piksi.msg_obs_content_t>();
 
             foreach (var item in msg)
             {
                 piksi.msg_obs_content_t ob = new piksi.msg_obs_content_t();
-                ob.prn = item.prn;
+                ob.prn = (byte)(item.prn-1);
                 ob.P = (uint)(item.pr * piksi.MSG_OBS_P_MULTIPLIER);
                 ob.L.Li = (int)item.cp;
                 ob.L.Lf = (byte)((item.cp - ob.L.Li) * 256.0);
@@ -191,6 +237,25 @@ namespace piksi
                 }
             }
         }
+
+     private static void DoAcceptTcpClientCallbackraw(IAsyncResult ar)
+     {
+         // Get the listener that handles the client request.
+         TcpListener listener = (TcpListener)ar.AsyncState;
+
+         listener.BeginAcceptTcpClient(new AsyncCallback(DoAcceptTcpClientCallbackraw), listener);
+
+         // End the operation and display the received data on  
+         // the console.
+         using (
+         clientraw = listener.EndAcceptTcpClient(ar))
+         {
+             while (clientraw.Connected)
+             {
+                 System.Threading.Thread.Sleep(100);
+             }
+         }
+     }
 
         static void pk_ObsMessage(object sender, EventArgs e)
         {

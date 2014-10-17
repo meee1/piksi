@@ -414,7 +414,8 @@ namespace piksi
                         {
                             var test = msg.payload.ByteArrayToStructure<sbp_gps_time_t>(0);
 
-                            //Console.WriteLine(test.wn + " " + test.tow);
+                            Console.SetCursorPosition(0, 0);
+                            Console.WriteLine(test.wn + " " + test.tow);
                         }
                         else if ((MSG)msg.msgtype == MSG.SBP_POS_LLH)
                         {
@@ -426,13 +427,13 @@ namespace piksi
                         {
                             var test = msg.payload.ByteArrayToStructure<sbp_dops_t>(0);
 
-                            //Console.WriteLine(test.lat + " " + test.lon + " " + test.height);
+                            //Console.WriteLine(test.gdop + " " + test.hdop + " " + test.tow);
                         }
                         else if ((MSG)msg.msgtype == MSG.SBP_POS_ECEF)
                         {
                             var test = msg.payload.ByteArrayToStructure<sbp_pos_ecef_t>(0);
 
-                            // Console.WriteLine(test.x + " " + test.y + " " + test.z);
+                             //Console.WriteLine(test.x + " " + test.y + " " + test.z);
                         }
                         else if ((MSG)msg.msgtype == MSG.SBP_VEL_NED)
                         {
@@ -456,7 +457,7 @@ namespace piksi
                         {
                             var test = msg.payload.ByteArrayToStructure<sbp_baseline_ecef_t>(0);
 
-                            // Console.WriteLine(test.x + " " + test.y + " " + test.z);
+                             //Console.WriteLine(test.x + " " + test.y + " " + test.z);
                         }
                         else if ((MSG)msg.msgtype == MSG.MSG_PACKED_OBS)
                         {
@@ -482,7 +483,7 @@ namespace piksi
 
                                 Console.SetCursorPosition(0, 15 + a + linebase);
 
-                                Console.WriteLine(ob.prn + "\t" + (ob.snr / MSG_OBS_SNR_MULTIPLIER) + "\t" + (ob.P / MSG_OBS_P_MULTIPLIER) + "\t" + (ob.L.Li + (ob.L.Lf / 256.0)) + "    ");
+                                Console.WriteLine(msg.sender + " " + hdr.t.tow + " " + ob.prn + "\t" + (ob.snr / MSG_OBS_SNR_MULTIPLIER) + "\t" + (ob.P / MSG_OBS_P_MULTIPLIER) + "\t" + (ob.L.Li + (ob.L.Lf / 256.0)) + "    ");
                             }
 
                             if (ObsMessage != null)
@@ -507,7 +508,7 @@ namespace piksi
                             {
                                 var test = msg.payload.ByteArrayToStructure<tracking_state_msg_t>(a);
 
-                                Console.SetCursorPosition(50, a / len);
+                                Console.SetCursorPosition(60, a / len);
 
                                 Console.WriteLine(test.prn + "\t" + test.state + " " + test.cn0 + "         ");
                             }
@@ -518,12 +519,12 @@ namespace piksi
                             var test = msg.payload.ByteArrayToStructure<msg_uart_state_t>(0);
 
                             Console.SetCursorPosition(0, 13);
-                            Console.WriteLine("uart3 " + test.uart3.tx_throughput + " uart2 " + test.uart2.tx_throughput + "   ");
+                            Console.WriteLine("uart3 " + test.uart3.tx_throughput + " uart2 " + test.uart2.tx_throughput + " obs lat " + test.obs_latency.current + "     ");
                         }
                         else if ((MSG)msg.msgtype == MSG.MSG_THREAD_STATE)
                         {
                             var test = msg.payload.ByteArrayToStructure<msg_thread_state_t>(0);
-                            Console.WriteLine(new String(test.name) + " cpu " + test.cpu / 10.0 + "\tstackfree " + test.stack_free + "   ");
+                            //Console.WriteLine(new String(test.name) + " cpu " + test.cpu / 10.0 + "\tstackfree " + test.stack_free + "   ");
                         }
                         else if ((MSG)msg.msgtype == MSG.SBP_HEARTBEAT)
                         {
