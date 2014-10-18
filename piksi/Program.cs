@@ -72,9 +72,7 @@ namespace piksi
 
             comport = new SerialPort(args[1], int.Parse(args[2]));
 
-            comport.Open();
-
-           
+            comport.Open();           
 
             // sbp to rtcm
             if (outmode.ToLower() == "rtcm")
@@ -135,6 +133,7 @@ namespace piksi
             head.t.wn = (ushort)(msg[0].week);
             head.t.tow = (uint)((msg[0].tow * piksi.MSG_OBS_TOW_MULTIPLIER));
 
+            // rounding - should not need this, but testing against a ublox requires some "lieing"
             double addextra = (10 - head.t.tow % 10);
 
             //head.t.tow += (uint)addextra;
