@@ -32,7 +32,8 @@ namespace piksi
             {
                 Console.WriteLine("Usage: program.exe outputformat port baud");
                 Console.WriteLine("outputformat = rtcm,sbp\nport = [comport of piksi]\nbaud = [baudrate of piksi]");
-                Console.WriteLine("the application will output data on port 989");
+                Console.WriteLine("rtcm: read sbp from comport and write to tcp port 989");
+                Console.WriteLine("sbp: read rtcm from tcp port 989 and write sbp to comport (either piksi or 3dr radio)");
                 return;
             }
 
