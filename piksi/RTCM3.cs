@@ -216,7 +216,7 @@ namespace piksi
 
                 DateTime gpstime = GetFromGps(week, tow);
 
-                Console.WriteLine("> {0} {1} {2} {3,2} {4} {5} {6} {7}", gpstime.Year, gpstime.Month, gpstime.Day, gpstime.Hour, gpstime.Minute, gpstime.Second + (gpstime.Millisecond / 1000.0), 0, nsat);
+                Console.WriteLine("> {0,4} {1,2} {2,2} {3,2} {4,2} {5,10} {6,2} {7,2}", gpstime.Year, gpstime.Month, gpstime.Day, gpstime.Hour, gpstime.Minute, gpstime.Second + (gpstime.Millisecond / 1000.0), 0, nsat);
 
                 for (int a = 0; a < nsat; a++)
                 {
@@ -248,7 +248,7 @@ namespace piksi
 
                         obs.Add(ob);
 
-                        Console.WriteLine("G{0,2}  {1}   {2}                         {3}", ob.prn.ToString(), ob.pr.ToString("0.000"), ob.cp.ToString("0.0000"), ob.snr.ToString("0.000"));
+                        Console.WriteLine("G{0,2} {1,13} {2,16} {3,30}", ob.prn.ToString(), ob.pr.ToString("0.000"), ob.cp.ToString("0.0000"), ob.snr.ToString("0.000"));
                     }
                 }
 
