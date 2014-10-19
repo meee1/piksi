@@ -26,10 +26,19 @@ namespace piksi
 
         static piksi pk = new piksi();
 
+        /*
+import sbp_piksi
+link.send_message(sbp_piksi.SETTINGS, 'uart_ftdi\0mode\0SBP\0')
+
+import sbp_piksi
+self.link.send_message(sbp_piksi.SETTINGS, 'uart_ftdi\0baudrate\0%s\0' % ('1000000'.encode('ascii')))
+         */
+
         static void Main(string[] args)
         {
             if (args.Length != 3)
             {
+                Console.WriteLine("Piksi v0.1.1 beta By Michael Oborne");
                 Console.WriteLine("Usage: program.exe outputformat port baud");
                 Console.WriteLine("outputformat = rtcm,sbp\nport = [comport of piksi]\nbaud = [baudrate of piksi]");
                 Console.WriteLine("rtcm: read sbp from comport and write to tcp port 989");
@@ -74,7 +83,7 @@ namespace piksi
 
             comport = new SerialPort(args[1], int.Parse(args[2]));
 
-            comport.Open();           
+            comport.Open();
 
             // sbp to rtcm
             if (outmode.ToLower() == "rtcm")
@@ -194,7 +203,7 @@ namespace piksi
 
                 byte[] packet = pk.GeneratePacket(bpos, piksi.MSG.MSG_BASE_POS);
 
-                comport.Write(packet, 0, packet.Length);
+                //comport.Write(packet, 0, packet.Length);
             }
             if (msg2 != null)
             {
@@ -211,7 +220,7 @@ namespace piksi
 
                 byte[] packet = pk.GeneratePacket(bpos, piksi.MSG.MSG_BASE_POS);
 
-                comport.Write(packet, 0, packet.Length);
+               // comport.Write(packet, 0, packet.Length);
             }
         }
 
@@ -248,12 +257,14 @@ namespace piksi
 
             foreach (var item in msg)
             {
+                item.cp *= -1;
+
                 piksi.msg_obs_content_t ob = new piksi.msg_obs_content_t();
                 ob.prn = (byte)(item.prn-1);
                 ob.P = (uint)(item.pr * piksi.MSG_OBS_P_MULTIPLIER);
                 ob.L.Li = (int)item.cp;
                 ob.L.Lf = (byte)((item.cp - ob.L.Li) * 256.0);
-                ob.snr = (byte)(item.snr * piksi.MSG_OBS_SNR_MULTIPLIER);
+                ob.snr = (byte)(item.snr);// / piksi.MSG_OBS_SNR_MULTIPLIER);
 
                 obs.Add(ob);
             }
