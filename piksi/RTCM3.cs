@@ -15,6 +15,7 @@ namespace piksi
     public class RTCM3
     {
         public event EventHandler ObsMessage;
+        public event EventHandler BasePosMessage;
 
         const byte RTCM3PREAMB = 0xD3;
         const double PRUNIT_GPS = 299792.458; /* rtcm ver.3 unit of gps pseudorange (m) */
@@ -56,6 +57,14 @@ namespace piksi
             setbitu(buff, pos, len, (u32)data);
         }
 
+        static void set38bits(u8[] buff, uint pos, double value)
+        {
+            int word_h = (int)Math.Floor(value / 64.0);
+            uint word_l = (uint)(value - word_h * 64.0);
+            setbits(buff, pos, 32, word_h);
+            setbitu(buff, pos + 32, 6, word_l);
+        }
+
         static uint getbitu(u8[] buff, u32 pos, u32 len)
         {
             uint bits = 0;
@@ -73,7 +82,10 @@ namespace piksi
             return (int)(bits | (~0u << (int)len)); /* extend sign */
         }
 
-
+        static double getbits_38(u8[] buff, uint pos)
+        {
+            return (double)getbits(buff, pos, 32) * 64.0 + getbitu(buff, pos + 32, 6);
+        }
 
         /* carrier-phase - pseudorange in cycle --------------------------------------*/
         static double cp_pr(double cp, double pr_cyc)
@@ -415,6 +427,143 @@ namespace piksi
             }
         }
 
+        public class type1005
+        {
+            public u16 staid = 1;
+            public u8 itrf = 0;
+            public u8 gpsind = 1;
+            public u8 glonassind = 0;
+            public u8 galileoind = 0;
+            public u8 refstatind = 0;
+            public double rr0;
+            public u8 oscind = 1;
+            public u8 resv = 0;
+            public double rr1;
+            public u8 quatcycind = 0;
+            public double rr2;
+
+            public double[] ecefposition
+            {
+                get
+                {
+                    return new double[] 
+                    { 
+                        rr0 * 0.0001, 
+                        rr1 * 0.0001, 
+                        rr2 * 0.0001 
+                    };
+                }
+                set
+                {
+                    rr0 = value[0] / 0.0001;
+                    rr1 = value[1] / 0.0001;
+                    rr2 = value[2] / 0.0001;
+                }
+            }
+
+            public void Read(byte[] buffer)
+            {
+                uint i = 24 + 12;
+
+                staid = (u16)getbitu(buffer, i, 12); i += 12;
+                itrf = (u8)getbitu(buffer, i, 6); i += 6 + 4;
+                rr0 = getbits_38(buffer, i); i += 38 + 2;
+                rr1 = getbits_38(buffer, i); i += 38 + 2;
+                rr2 = getbits_38(buffer, i); i += 38;
+            }
+
+            public uint Write(byte[] buffer)
+            {
+                uint i = 24;
+
+                setbitu(buffer, i, 12, 1005); i += 12; /* message no */
+                setbitu(buffer, i, 12, staid); i += 12; /* ref station id */
+                setbitu(buffer, i, 6, 0); i += 6; /* itrf realization year */
+                setbitu(buffer, i, 1, 1); i += 1; /* gps indicator */
+                setbitu(buffer, i, 1, 1); i += 1; /* glonass indicator */
+                setbitu(buffer, i, 1, 0); i += 1; /* galileo indicator */
+                setbitu(buffer, i, 1, 0); i += 1; /* ref station indicator */
+                set38bits(buffer, i, ecefposition[0] / 0.0001); i += 38; /* antenna ref point ecef-x */
+                setbitu(buffer, i, 1, 1); i += 1; /* oscillator indicator */
+                setbitu(buffer, i, 1, 0); i += 1; /* reserved */
+                set38bits(buffer, i, ecefposition[1] / 0.0001); i += 38; /* antenna ref point ecef-y */
+                setbitu(buffer, i, 2, 0); i += 2; /* quarter cycle indicator */
+                set38bits(buffer, i, ecefposition[2] / 0.0001); i += 38; /* antenna ref point ecef-z */
+
+                return i;
+            }
+        }
+
+        public class type1006
+        {
+            public u16 staid = 1;
+            public u8 itrf = 0;
+            public u8 gpsind = 1;
+            public u8 glonassind = 0;
+            public u8 galileoind = 0;
+            public u8 refstatind = 0;
+            public double rr0;
+            public u8 oscind = 1;
+            public u8 resv = 0;
+            public double rr1;
+            public u8 quatcycind = 0;
+            public double rr2;
+            public u16 anth;
+
+            public double[] ecefposition 
+            {
+                get 
+                { 
+                    return new double[] 
+                    { 
+                        rr0 * 0.0001, 
+                        rr1 * 0.0001, 
+                        rr2 * 0.0001 
+                    }; 
+                }
+                set
+                {
+                    rr0 = value[0] / 0.0001;
+                    rr1 = value[1] / 0.0001;
+                    rr2 = value[2] / 0.0001;
+                }
+            }
+
+            public void Read(byte[] buffer)
+            {
+                uint i = 24 + 12;
+
+                staid = (u16)getbitu(buffer, i, 12); i += 12;
+                itrf = (u8)getbitu(buffer, i, 6); i += 6 + 4;
+                rr0 = getbits_38(buffer, i); i += 38 + 2;
+                rr1 = getbits_38(buffer, i); i += 38 + 2;
+                rr2 = getbits_38(buffer, i); i += 38;
+                anth = (u16)getbitu(buffer, i, 16); i += 16;
+            }
+
+            public uint Write(byte[] buffer)
+            {
+                uint i = 24;
+
+                setbitu(buffer, i, 12, 1005); i += 12; /* message no */
+                setbitu(buffer, i, 12, staid); i += 12; /* ref station id */
+                setbitu(buffer, i, 6, 0); i += 6; /* itrf realization year */
+                setbitu(buffer, i, 1, 1); i += 1; /* gps indicator */
+                setbitu(buffer, i, 1, 1); i += 1; /* glonass indicator */
+                setbitu(buffer, i, 1, 0); i += 1; /* galileo indicator */
+                setbitu(buffer, i, 1, 0); i += 1; /* ref station indicator */
+                set38bits(buffer, i, ecefposition[0] / 0.0001); i += 38; /* antenna ref point ecef-x */
+                setbitu(buffer, i, 1, 1); i += 1; /* oscillator indicator */
+                setbitu(buffer, i, 1, 0); i += 1; /* reserved */
+                set38bits(buffer, i, ecefposition[1] / 0.0001); i += 38; /* antenna ref point ecef-y */
+                setbitu(buffer, i, 2, 0); i += 2; /* quarter cycle indicator */
+                set38bits(buffer, i, ecefposition[2] / 0.0001); i += 38; /* antenna ref point ecef-z */
+                setbitu(buffer, i, 16, anth); i += 16; /* antenna height */
+
+                return i;
+            }
+        }
+
 
         int step = 0;
 
@@ -510,6 +659,25 @@ namespace piksi
 
                             if (ObsMessage != null)
                                 ObsMessage(tp.obs, null);
+                        }
+
+                        if (head.messageno == 1005)
+                        {
+                            type1005 tp = new type1005();
+
+                            tp.Read(packet);
+
+                            if (BasePosMessage != null)
+                                BasePosMessage(tp, null);
+                        }
+                        if (head.messageno == 1006)
+                        {
+                            type1006 tp = new type1006();
+
+                            tp.Read(packet);
+
+                            if (BasePosMessage != null)
+                                BasePosMessage(tp, null);  
                         }
                     }
 

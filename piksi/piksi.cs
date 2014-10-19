@@ -16,6 +16,7 @@ namespace piksi
     public class piksi
     {
         public event EventHandler ObsMessage;
+        public event EventHandler BasePosMessage;
 
         public enum MSG
         {
@@ -260,7 +261,7 @@ namespace piksi
         }
 
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
-        struct msg_base_pos_t
+        public struct msg_base_pos_t
         {
             public double pos_lat;
             public double pos_lon;
@@ -329,6 +330,40 @@ namespace piksi
         public const int SBP_FRAMING_SIZE_BYTES = 8;
         /** Value defining maximum SBP packet size */
         public const int SBP_FRAMING_MAX_PAYLOAD_SIZE = 255;
+
+        public byte[] GeneratePacket(object indata, MSG msgtype)
+        {
+            byte[] data = StaticUtils.StructureToByteArray(indata);
+
+            byte[] packet = new u8[data.Length + 6 + 2];
+
+            piksi.header msgpreamble = new piksi.header();
+            msgpreamble.crc = 0x1234;
+            msgpreamble.preamble = 0x55;
+            msgpreamble.msgtype = (ushort)msgtype;
+            msgpreamble.sender = 1;
+            msgpreamble.length = (byte)(data.Length);
+            msgpreamble.payload = new byte[msgpreamble.length];
+
+            byte[] preamblebytes = StaticUtils.StructureToByteArray(msgpreamble);
+
+            Array.Copy(preamblebytes, 0, packet, 0, preamblebytes.Length - 2);
+
+            Array.Copy(data, 0, packet, 6, data.Length);
+
+
+            Crc16Ccitt crc = new Crc16Ccitt(InitialCrcValue.Zeros);
+            ushort crcpacket = 0;
+            for (int i = 1; i < (packet.Length - 2); i++)
+            {
+                crcpacket = crc.Accumulate(packet[i], crcpacket);
+            }
+
+            packet[packet.Length - 2] = (byte)(crcpacket & 0xff);
+            packet[packet.Length - 1] = (byte)((crcpacket >> 8) & 0xff);
+
+            return packet;
+        }
 
         // packet read step state
         int state = 0;
@@ -488,6 +523,15 @@ namespace piksi
 
                             if (ObsMessage != null)
                                 ObsMessage(msg, null);
+                        }
+                        else if ((MSG)msg.msgtype == MSG.MSG_BASE_POS)
+                        {
+                            var bpos = msg.payload.ByteArrayToStructure<msg_base_pos_t>(0);
+
+                            Console.WriteLine("base pos {0} {1} {2}",bpos.pos_lat,bpos.pos_lon,bpos.pos_alt);
+
+                            if (BasePosMessage != null)
+                                BasePosMessage(msg, null);                            
                         }
                         else if ((MSG)msg.msgtype == MSG.MSG_IAR_STATE)
                         {

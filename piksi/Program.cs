@@ -34,6 +34,7 @@ namespace piksi
                 Console.WriteLine("outputformat = rtcm,sbp\nport = [comport of piksi]\nbaud = [baudrate of piksi]");
                 Console.WriteLine("rtcm: read sbp from comport and write to tcp port 989");
                 Console.WriteLine("sbp: read rtcm from tcp port 989 and write sbp to comport (either piksi or 3dr radio)");
+                Console.WriteLine("Copyright Michael Oborne 2014");
                 return;
             }
 
@@ -94,6 +95,8 @@ namespace piksi
             if (outmode.ToLower() == "sbp")
             {
                 rtcm.ObsMessage += rtcm_ObsMessage;
+                rtcm.BasePosMessage += rtcm_BasePosMessage;
+
                 while (true)
                 {
                     while (client != null && client.Available > 0)
@@ -117,6 +120,99 @@ namespace piksi
             }
 
             Console.ReadLine();
+        }
+
+        static double RE_WGS84 = 6378137.0;          /* earth semimajor axis (WGS84) (m) */
+
+        static double FE_WGS84 = (1.0 / 298.257223563); /* earth flattening (WGS84) */
+
+        const double PI = Math.PI; /* pi */
+
+        const double D2R = (PI / 180.0);   /* deg to rad */
+        const double R2D = (180.0 / PI);   /* rad to deg */
+
+        static double dot(double[] a, double[] b, int n)
+        {
+            double c = 0.0;
+
+            while (--n >= 0) c += a[n] * b[n];
+            return c;
+        }
+
+        static double fabs(double input)
+        {
+            return Math.Abs(input);
+        }
+
+        static double atan(double input)
+        {
+            return Math.Atan(input);
+        }
+        static double atan2(double input, double input2)
+        {
+            return Math.Atan2(input, input2);
+        }
+
+        static double sqrt(double input)
+        {
+            return Math.Sqrt(input);
+        }
+
+        static void ecef2pos(double[] r, ref double[] pos)
+        {
+            double e2 = FE_WGS84 * (2.0 - FE_WGS84), r2 = dot(r, r, 2), z, zk, v = RE_WGS84, sinp;
+
+            for (z = r[2], zk = 0.0; fabs(z - zk) >= 1E-4; )
+            {
+                zk = z;
+                sinp = z / sqrt(r2 + z * z);
+                v = RE_WGS84 / sqrt(1.0 - e2 * sinp * sinp);
+                z = r[2] + v * e2 * sinp;
+            }
+            pos[0] = r2 > 1E-12 ? atan(z / sqrt(r2)) : (r[2] > 0.0 ? PI / 2.0 : -PI / 2.0);
+            pos[1] = r2 > 1E-12 ? atan2(r[1], r[0]) : 0.0;
+            pos[2] = sqrt(r2 + z * z) - v;
+        }
+
+        static void rtcm_BasePosMessage(object sender, EventArgs e)
+        {
+            var msg1 = sender as RTCM3.type1005;
+            var msg2 = sender as RTCM3.type1006;
+
+            if (msg1 != null)
+            {
+                piksi.msg_base_pos_t bpos = new piksi.msg_base_pos_t();
+
+                // in radians
+                double[] llhr = new double[3];
+
+                ecef2pos(new double[] { msg1.rr0 * 0.0001, msg1.rr1 * 0.0001, msg1.rr2 * 0.0001 }, ref llhr);
+
+                bpos.pos_lat = llhr[0] * R2D;
+                bpos.pos_lon = llhr[1] * R2D;
+                bpos.pos_alt = llhr[2];
+
+                byte[] packet = pk.GeneratePacket(bpos, piksi.MSG.MSG_BASE_POS);
+
+                comport.Write(packet, 0, packet.Length);
+            }
+            if (msg2 != null)
+            {
+                piksi.msg_base_pos_t bpos = new piksi.msg_base_pos_t();
+
+                // in radians
+                double[] llhr = new double[3];
+
+                ecef2pos(new double[] { msg2.rr0 * 0.0001, msg2.rr1 * 0.0001, msg2.rr2 * 0.0001 }, ref llhr);
+
+                bpos.pos_lat = llhr[0] * R2D;
+                bpos.pos_lon = llhr[1] * R2D;
+                bpos.pos_alt = llhr[2];
+
+                byte[] packet = pk.GeneratePacket(bpos, piksi.MSG.MSG_BASE_POS);
+
+                comport.Write(packet, 0, packet.Length);
+            }
         }
 
         static void rtcm_ObsMessage(object sender, EventArgs e)
