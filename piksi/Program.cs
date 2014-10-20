@@ -315,9 +315,7 @@ G                                                           SYS / PHASE SHIFT
             head.t.tow = (uint)((msg[0].tow * piksi.MSG_OBS_TOW_MULTIPLIER));
 
             // rounding - should not need this, but testing against a ublox requires some "lieing"
-            double addextra = (10 - head.t.tow % 10);
-
-            //head.t.tow += (uint)addextra;
+            //head.t.tow = (uint)(Math.Round((decimal)(head.t.tow / 1000.0))*(decimal)1000.0);
 
             double soln_freq = 10;
             double obs_output_divisor = 2;
