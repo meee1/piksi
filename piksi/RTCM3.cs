@@ -162,28 +162,6 @@ namespace piksi
             }
         }
 
-        static DateTime GetFromGps(int weeknumber, double seconds)
-        {
-            DateTime datum = new DateTime(1980, 1, 6, 0, 0, 0);
-            DateTime week = datum.AddDays(weeknumber * 7);
-            DateTime time = week.AddSeconds(seconds);
-            return time;
-        }
-
-        static void GetFromTime(DateTime time, ref int week, ref double seconds)
-        {
-            DateTime datum = new DateTime(1980, 1, 6, 0, 0, 0);
-
-            TimeSpan dif = time - datum;
-
-            int weeks = (int)(dif.TotalDays / 7);
-
-            week = weeks;
-
-            dif = time - datum.AddDays(weeks * 7);
-
-            seconds = dif.TotalSeconds;
-        }
 
         public class type1002
         {
@@ -208,13 +186,13 @@ namespace piksi
                 double seconds = 0;
 
                 // asumes current week
-                GetFromTime(DateTime.Now, ref week, ref seconds);
+                StaticUtils.GetFromTime(DateTime.Now, ref week, ref seconds);
 
                 // if tow is larger than the calced curretn time, go back one week
                 if (tow > seconds)
                     week--;
 
-                DateTime gpstime = GetFromGps(week, tow);
+                DateTime gpstime = StaticUtils.GetFromGps(week, tow);
 
                 Console.WriteLine("> {0,4} {1,2} {2,2} {3,2} {4,2} {5,10} {6,2} {7,2}", gpstime.Year, gpstime.Month, gpstime.Day, gpstime.Hour, gpstime.Minute, gpstime.Second + (gpstime.Millisecond / 1000.0), 0, nsat);
 
@@ -239,7 +217,7 @@ namespace piksi
 
                     double cp1 = ob.raw.ppr1 * 0.0005 / lam1;
 
-                    if (ob.raw.ppr1 != 0xFFF80000)
+                    if ((uint)ob.raw.ppr1 != 0xFFF80000)
                     {
                         ob.prn = ob.raw.prn;
                         ob.cp = pr1 / lam1 + cp1;
@@ -339,13 +317,13 @@ namespace piksi
                 double seconds = 0;
 
                 // asumes current week
-                GetFromTime(DateTime.Now, ref week, ref seconds);
+                StaticUtils.GetFromTime(DateTime.Now, ref week, ref seconds);
 
                 // if tow is larger than the calced curretn time, go back one week
                 if (tow > seconds)
                     week--;
 
-                DateTime gpstime = GetFromGps(week, tow);
+                DateTime gpstime = StaticUtils.GetFromGps(week, tow);
 
                 Console.WriteLine("> {0} {1} {2} {3,2} {4} {5} {6} {7}", gpstime.Year, gpstime.Month, gpstime.Day, gpstime.Hour, gpstime.Minute, gpstime.Second + (gpstime.Millisecond / 1000.0), 0, nsat);
 
@@ -375,7 +353,7 @@ namespace piksi
 
                     double cp1 = ob.raw.ppr1 * 0.0005 / lam1;
 
-                    if (ob.raw.ppr1 != 0xFFF80000)
+                    if ((uint)ob.raw.ppr1 != 0xFFF80000)
                     {
                         ob.prn = ob.raw.prn;
                         ob.cp = pr1 / lam1 + cp1;
@@ -384,7 +362,7 @@ namespace piksi
 
                         obs.Add(ob);
 
-                        Console.WriteLine("G{0,2}  {1}   {2}                         {3}", ob.prn.ToString(), ob.pr.ToString("0.000"), ob.cp.ToString("0.0000"), ob.snr.ToString("0.000"));
+                        Console.WriteLine("G{0,2} {1,13} {2,16} {3,30}", ob.prn.ToString(), ob.pr.ToString("0.000"), ob.cp.ToString("0.0000"), ob.snr.ToString("0.000"));
                     }
                 }
 

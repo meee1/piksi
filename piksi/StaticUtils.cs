@@ -8,6 +8,29 @@ using System.Threading.Tasks;
 static class StaticUtils
 {
 
+    public static DateTime GetFromGps(int weeknumber, double seconds)
+    {
+        DateTime datum = new DateTime(1980, 1, 6, 0, 0, 0);
+        DateTime week = datum.AddDays(weeknumber * 7);
+        DateTime time = week.AddSeconds(seconds);
+        return time;
+    }
+
+    public static void GetFromTime(DateTime time, ref int week, ref double seconds)
+    {
+        DateTime datum = new DateTime(1980, 1, 6, 0, 0, 0);
+
+        TimeSpan dif = time - datum;
+
+        int weeks = (int)(dif.TotalDays / 7);
+
+        week = weeks;
+
+        dif = time - datum.AddDays(weeks * 7);
+
+        seconds = dif.TotalSeconds;
+    }
+
     public static TPacket ByteArrayToStructure<TPacket>(this byte[] bytearray, int startoffset) where TPacket : struct
     {
         object newPacket = new TPacket();
