@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.IO.Ports;
 using System.Linq;
+using System.Net;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -14,15 +15,17 @@ namespace piksi
     {
         static RTCM3 rtcm = new RTCM3();
 
-        static TcpListener listener = new TcpListener(989);
+        static TcpListener listener = new TcpListener(IPAddress.Any, 989);
 
-        static TcpListener listenerraw = new TcpListener(990);
+        static TcpListener listenerraw = new TcpListener(IPAddress.Any, 990);
 
         static TcpClient client;
 
         static TcpClient clientraw;
 
         static SerialPort comport;
+
+        static StreamWriter rinexoutput;
 
         static piksi pk = new piksi();
 
@@ -54,11 +57,46 @@ self.link.send_message(sbp_piksi.SETTINGS, 'uart_ftdi\0baudrate\0%s\0' % ('10000
                 Console.WriteLine("outputformat = rtcm,sbp\nport = [comport of piksi]\nbaud = [baudrate of piksi]");
                 Console.WriteLine("rtcm: read sbp from comport and write to tcp port 989");
                 Console.WriteLine("sbp: read rtcm from tcp port 989 and write sbp to comport (either piksi or 3dr radio)");
+                Console.WriteLine();
+                Console.WriteLine("OR program.exe rinex infile.sbp outfile.obs");
                 Console.WriteLine("Copyright Michael Oborne 2014");
                 return;
             }
 
             string outmode = args[0];
+
+            if (outmode.ToLower() == "rinex")
+            {
+                rinexoutput = new StreamWriter(args[2]);
+
+                rinexoutput.WriteLine(@"     3.02           OBSERVATION DATA    M: Mixed            RINEX VERSION / TYPE
+                                                            MARKER NAME         
+                                                            MARKER NUMBER       
+                                                            MARKER TYPE         
+                                                            OBSERVER / AGENCY   
+                                                            REC # / TYPE / VERS 
+                                                            ANT # / TYPE        
+        0.0000        0.0000        0.0000                  APPROX POSITION XYZ 
+        0.0000        0.0000        0.0000                  ANTENNA: DELTA H/E/N
+G   16 C1C L1C D1C S1C C1W L1W D1W S1W C2W L2W D2W S2W C2X  SYS / # / OBS TYPES 
+       L2X D2X S2X                                          SYS / # / OBS TYPES   
+G                                                           SYS / PHASE SHIFT   
+                                                            END OF HEADER  ");
+
+                pk.ObsMessage += pkrinex_ObsMessage;
+
+                BinaryReader br = new BinaryReader(File.OpenRead(args[1]));
+
+                while (br.BaseStream.Position < br.BaseStream.Length)
+                {
+                    pk.read(br.ReadByte());
+                }
+
+                rinexoutput.Close();
+
+                return;
+            }
+
             string port = args[1];
             int baudrate = int.Parse(args[2]);
 
@@ -69,6 +107,7 @@ self.link.send_message(sbp_piksi.SETTINGS, 'uart_ftdi\0baudrate\0%s\0' % ('10000
             listenerraw.Start();
 
             listenerraw.BeginAcceptTcpClient(new AsyncCallback(DoAcceptTcpClientCallbackraw), listenerraw);
+
 
             /*
             BinaryReader br = new BinaryReader(File.OpenRead(@"C:\Users\hog\Desktop\gps data\rtcm3.11004.raw"));
@@ -84,7 +123,7 @@ self.link.send_message(sbp_piksi.SETTINGS, 'uart_ftdi\0baudrate\0%s\0' % ('10000
 
     
             
-
+            
             comport = new SerialPort(args[1], int.Parse(args[2]));
 
             comport.Open();
@@ -133,6 +172,38 @@ self.link.send_message(sbp_piksi.SETTINGS, 'uart_ftdi\0baudrate\0%s\0' % ('10000
             }
 
             Console.ReadLine();
+        }
+
+        private static void pkrinex_ObsMessage(object sender, EventArgs e)
+        {
+            if (rinexoutput == null)
+                return;
+
+            piksi.header msg = (piksi.header)sender;
+
+            var hdr = msg.payload.ByteArrayToStructure<piksi.msg_obs_header_t>(0);
+
+            // total is number of packets
+            int total = hdr.seq >> piksi.MSG_OBS_HEADER_SEQ_SHIFT;
+            // this is packet count number
+            int count = hdr.seq & piksi.MSG_OBS_HEADER_SEQ_MASK;
+
+            int lenhdr = Marshal.SizeOf(hdr);
+
+            int lenobs = Marshal.SizeOf(new piksi.msg_obs_content_t());
+
+            int obscount = (msg.length - lenhdr) / lenobs;
+
+            DateTime gpstime = StaticUtils.GetFromGps(hdr.t.wn, hdr.t.tow / 1000.0);
+
+            rinexoutput.WriteLine("> {0,4} {1,2} {2,2} {3,2} {4,2} {5,-10} {6,2} {7,2}", gpstime.Year, gpstime.Month, gpstime.Day, gpstime.Hour, gpstime.Minute, (gpstime.Second + (gpstime.Millisecond / 1000.0)).ToString(System.Globalization.CultureInfo.InvariantCulture), 0, obscount);
+
+            for (int a = 0; a < obscount; a++)
+            {
+                var ob = msg.payload.ByteArrayToStructure<piksi.msg_obs_content_t>(lenhdr + a * lenobs);
+
+                rinexoutput.WriteLine("G{0,2} {1,13} {2,16} {3,30}", ob.prn.ToString(), (ob.P / piksi.MSG_OBS_P_MULTIPLIER).ToString("0.000", System.Globalization.CultureInfo.InvariantCulture), ((ob.L.Li + (ob.L.Lf / 256.0))).ToString("0.0000", System.Globalization.CultureInfo.InvariantCulture), ob.snr.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture));
+            }
         }
 
         static double RE_WGS84 = 6378137.0;          /* earth semimajor axis (WGS84) (m) */
