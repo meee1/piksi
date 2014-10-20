@@ -491,8 +491,8 @@ namespace piksi
                         else if ((MSG)msg.msgtype == MSG.SBP_BASELINE_ECEF)
                         {
                             var test = msg.payload.ByteArrayToStructure<sbp_baseline_ecef_t>(0);
-
-                             //Console.WriteLine(test.x + " " + test.y + " " + test.z);
+                            Console.SetCursorPosition(0, 1);
+                             Console.WriteLine("bl "+test.x + " " + test.y + " " + test.z);
                         }
                         else if ((MSG)msg.msgtype == MSG.MSG_PACKED_OBS)
                         {
@@ -518,7 +518,7 @@ namespace piksi
 
                                 Console.SetCursorPosition(0, 15 + a + linebase);
 
-                                Console.WriteLine(msg.sender + " " + hdr.t.tow + " " + ob.prn + "\t" + (ob.snr / MSG_OBS_SNR_MULTIPLIER) + "\t" + (ob.P / MSG_OBS_P_MULTIPLIER) + "\t" + (ob.L.Li + (ob.L.Lf / 256.0)) + "    ");
+                                Console.WriteLine("{0,6} {1,10} {2,2} {3,5} {4,11} {5,17}           ",msg.sender , hdr.t.tow , ob.prn , (ob.snr / MSG_OBS_SNR_MULTIPLIER) , (ob.P / MSG_OBS_P_MULTIPLIER) , (ob.L.Li + (ob.L.Lf / 256.0)));
                             }
 
                             if (ObsMessage != null)
@@ -528,6 +528,7 @@ namespace piksi
                         {
                             var bpos = msg.payload.ByteArrayToStructure<msg_base_pos_t>(0);
 
+                            Console.SetCursorPosition(0, 2);
                             Console.WriteLine("base pos {0} {1} {2}",bpos.pos_lat,bpos.pos_lon,bpos.pos_alt);
 
                             if (BasePosMessage != null)
@@ -537,7 +538,8 @@ namespace piksi
                         {
                             var test = msg.payload.ByteArrayToStructure<msg_iar_state_t>(0);
 
-                            //Console.WriteLine(test.num_hyps);
+                            Console.SetCursorPosition(0, 3);
+                            Console.WriteLine("IAR "+test.num_hyps);
                         }
                         else if ((MSG)msg.msgtype == MSG.MSG_PRINT)
                         {
@@ -552,9 +554,9 @@ namespace piksi
                             {
                                 var test = msg.payload.ByteArrayToStructure<tracking_state_msg_t>(a);
 
-                                Console.SetCursorPosition(60, a / len);
+                                Console.SetCursorPosition(65, a / len);
 
-                                Console.WriteLine(test.prn + "\t" + test.state + " " + test.cn0 + "         ");
+                                Console.WriteLine("{0,2} {1,1} {2,10}",test.prn , test.state, test.cn0);
                             }
 
                         }
@@ -573,21 +575,43 @@ namespace piksi
                         else if ((MSG)msg.msgtype == MSG.SBP_HEARTBEAT)
                         {
                             //Console.Clear();
-                            Console.SetCursorPosition(0, 0);
+                            //Console.SetCursorPosition(0, 0);
                         }
                         else if ((MSG)msg.msgtype == MSG.MSG_ACQ_RESULT)
                         {
                             var test = msg.payload.ByteArrayToStructure<acq_result_msg_t>(0);
-                            Console.SetCursorPosition(0, 17);
+                            Console.SetCursorPosition(0, 7);
                             Console.WriteLine("aqn\t" + test.prn + "\t" + test.snr.ToString("0.00") + "\t" + test.cp + "\t" + test.cf + "\t\t");
+                        }
+                        else if ((MSG)msg.msgtype == MSG.MSG_SETTINGS_READ_BY_INDEX)
+                        {
+                            string test = ASCIIEncoding.ASCII.GetString(msg.payload);
+
+                            string[] items = test.Split('\0');
+
+                            Console.SetCursorPosition(0, 4);
+                            Console.WriteLine("setting "+test);
+
+                            //var test = msg.payload.ByteArrayToStructure<>(0);
+                            }
+                        else if ((MSG)msg.msgtype == MSG.MSG_BOOTLOADER_HANDSHAKE)
+                        {
+                            string test = ASCIIEncoding.ASCII.GetString(msg.payload);
+                            //var test = msg.payload.ByteArrayToStructure<>(0);
+                        }
+                        else if ((MSG)msg.msgtype == MSG.SBP_STARTUP)
+                        {
+                            //var test = msg.payload.ByteArrayToStructure<>(0);
                         }
                         else
                         {
+                            Console.SetCursorPosition(0, 5);
                             Console.WriteLine((MSG)msg.msgtype + " " + msg.length + " " + msg.sender);
                         }
                     }
                     else
                     {
+                        Console.SetCursorPosition(0, 6);
                         Console.WriteLine("sbp crc fail");
                     }
                     break;

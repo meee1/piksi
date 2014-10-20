@@ -36,6 +36,17 @@ self.link.send_message(sbp_piksi.SETTINGS, 'uart_ftdi\0baudrate\0%s\0' % ('10000
 
         static void Main(string[] args)
         {
+            /*
+            BinaryReader br = new BinaryReader(File.OpenRead(@"C:\Users\he56640\Desktop\stuff\sbp.raw"));
+
+            while (br.BaseStream.Position < br.BaseStream.Length)
+            {
+                pk.read(br.ReadByte());
+            }
+
+            return;
+            */
+
             if (args.Length != 3)
             {
                 Console.WriteLine("Piksi v0.1.1 beta By Michael Oborne");
@@ -70,16 +81,9 @@ self.link.send_message(sbp_piksi.SETTINGS, 'uart_ftdi\0baudrate\0%s\0' % ('10000
             return;
             */
 
-            /*
-            BinaryReader br = new BinaryReader(File.OpenRead(@"C:\Users\hog\Desktop\gps data\sbp.raw"));
 
-            while (br.BaseStream.Position < br.BaseStream.Length)
-            {
-                pk.read(br.ReadByte());
-            }
-
-            return;
-            */
+    
+            
 
             comport = new SerialPort(args[1], int.Parse(args[2]));
 
