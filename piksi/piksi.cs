@@ -518,7 +518,7 @@ namespace piksi
 
                                 Console.SetCursorPosition(0, 15 + a + linebase);
 
-                                Console.WriteLine("{0,6} {1,10} {2,2} {3,5} {4,11} {5,17}           ",msg.sender , hdr.t.tow , ob.prn , (ob.snr / MSG_OBS_SNR_MULTIPLIER) , (ob.P / MSG_OBS_P_MULTIPLIER) , (ob.L.Li + (ob.L.Lf / 256.0)));
+                                Console.WriteLine("{0,6} {1,10} {2,2} {3,5} {4,11} {5,17}           ",msg.sender , hdr.t.tow , (ob.prn+1) , (ob.snr / MSG_OBS_SNR_MULTIPLIER) , (ob.P / MSG_OBS_P_MULTIPLIER) , (ob.L.Li + (ob.L.Lf / 256.0)));
                             }
 
                             if (ObsMessage != null)

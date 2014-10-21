@@ -31,10 +31,13 @@ namespace piksi
 
         /*
 import sbp_piksi
-link.send_message(sbp_piksi.SETTINGS, 'uart_ftdi\0mode\0SBP\0')
+link.link.send_message(sbp_piksi.SETTINGS, 'uart_ftdi\0mode\0SBP\0')
 
 import sbp_piksi
 self.link.send_message(sbp_piksi.SETTINGS, 'uart_ftdi\0baudrate\0%s\0' % ('1000000'.encode('ascii')))
+         
+import sbp_piksi
+self.link.send_message(sbp_piksi.SETTINGS, 'uart_uarta\0sbp_message_mask\0%s\0' % ('65535'.encode('ascii')))
          */
 
         static void Main(string[] args)
@@ -208,7 +211,7 @@ G                                                           SYS / PHASE SHIFT
             {
                 var ob = msg.payload.ByteArrayToStructure<piksi.msg_obs_content_t>(lenhdr + a * lenobs);
 
-                rinexoutput.WriteLine("G{0,2} {1,13} {2,16} {3,30}", ob.prn.ToString("00"), (ob.P / piksi.MSG_OBS_P_MULTIPLIER).ToString("0.000", System.Globalization.CultureInfo.InvariantCulture), ((ob.L.Li + (ob.L.Lf / 256.0))).ToString("0.0000", System.Globalization.CultureInfo.InvariantCulture), ob.snr.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture));
+                rinexoutput.WriteLine("G{0,2} {1,13} {2,16} {3,30}", (ob.prn+1).ToString("00"), (ob.P / piksi.MSG_OBS_P_MULTIPLIER).ToString("0.000", System.Globalization.CultureInfo.InvariantCulture), ((ob.L.Li + (ob.L.Lf / 256.0))).ToString("0.0000", System.Globalization.CultureInfo.InvariantCulture), ob.snr.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture));
             }
         }
 
@@ -474,7 +477,7 @@ G                                                           SYS / PHASE SHIFT
 
                 RTCM3.ob rtcmob = new RTCM3.ob();
 
-                rtcmob.prn = ob.prn;
+                rtcmob.prn = (byte)(ob.prn+1);
                 rtcmob.snr = (byte)(ob.snr);
                 rtcmob.pr = (ob.P / piksi.MSG_OBS_P_MULTIPLIER);
                 rtcmob.cp = ob.L.Li + (ob.L.Lf / 256.0);
