@@ -10,7 +10,7 @@ static class StaticUtils
 
     public static DateTime GetFromGps(int weeknumber, double seconds)
     {
-        DateTime datum = new DateTime(1980, 1, 6, 0, 0, 0);
+        DateTime datum = new DateTime(1980, 1, 6, 0, 0, 0,DateTimeKind.Utc);
         DateTime week = datum.AddDays(weeknumber * 7);
         DateTime time = week.AddSeconds(seconds);
         return time;
@@ -18,7 +18,7 @@ static class StaticUtils
 
     public static void GetFromTime(DateTime time, ref int week, ref double seconds)
     {
-        DateTime datum = new DateTime(1980, 1, 6, 0, 0, 0);
+        DateTime datum = new DateTime(1980, 1, 6, 0, 0, 0, DateTimeKind.Utc);
 
         TimeSpan dif = time - datum;
 

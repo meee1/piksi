@@ -183,6 +183,10 @@ G                                                           SYS / PHASE SHIFT
 
             var hdr = msg.payload.ByteArrayToStructure<piksi.msg_obs_header_t>(0);
 
+            // relay packet
+            if (msg.sender == 0)
+                return;
+
             // total is number of packets
             int total = hdr.seq >> piksi.MSG_OBS_HEADER_SEQ_SHIFT;
             // this is packet count number
@@ -196,13 +200,15 @@ G                                                           SYS / PHASE SHIFT
 
             DateTime gpstime = StaticUtils.GetFromGps(hdr.t.wn, hdr.t.tow / 1000.0);
 
-            rinexoutput.WriteLine("> {0,4} {1,2} {2,2} {3,2} {4,2} {5,-10} {6,2} {7,2}", gpstime.Year, gpstime.Month, gpstime.Day, gpstime.Hour, gpstime.Minute, (gpstime.Second + (gpstime.Millisecond / 1000.0)).ToString(System.Globalization.CultureInfo.InvariantCulture), 0, obscount);
+            DateTime local = gpstime.ToLocalTime();
+
+            rinexoutput.WriteLine("> {0,4} {1,2} {2,2} {3,2} {4,2} {5,10} {6,1} {7,-2}", gpstime.Year, gpstime.Month, gpstime.Day, gpstime.Hour, gpstime.Minute, (gpstime.Second + (gpstime.Millisecond / 1000.0)).ToString("0.0000000",System.Globalization.CultureInfo.InvariantCulture), 0, obscount);
 
             for (int a = 0; a < obscount; a++)
             {
                 var ob = msg.payload.ByteArrayToStructure<piksi.msg_obs_content_t>(lenhdr + a * lenobs);
 
-                rinexoutput.WriteLine("G{0,2} {1,13} {2,16} {3,30}", ob.prn.ToString(), (ob.P / piksi.MSG_OBS_P_MULTIPLIER).ToString("0.000", System.Globalization.CultureInfo.InvariantCulture), ((ob.L.Li + (ob.L.Lf / 256.0))).ToString("0.0000", System.Globalization.CultureInfo.InvariantCulture), ob.snr.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture));
+                rinexoutput.WriteLine("G{0,2} {1,13} {2,16} {3,30}", ob.prn.ToString("00"), (ob.P / piksi.MSG_OBS_P_MULTIPLIER).ToString("0.000", System.Globalization.CultureInfo.InvariantCulture), ((ob.L.Li + (ob.L.Lf / 256.0))).ToString("0.0000", System.Globalization.CultureInfo.InvariantCulture), ob.snr.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture));
             }
         }
 
@@ -442,6 +448,10 @@ G                                                           SYS / PHASE SHIFT
             piksi.header msg = (piksi.header)sender;
 
             var hdr = msg.payload.ByteArrayToStructure<piksi.msg_obs_header_t>(0);
+
+            // relay packet
+            if (msg.sender == 0)
+                return;
 
             // total is number of packets
             int total = hdr.seq >> piksi.MSG_OBS_HEADER_SEQ_SHIFT;
