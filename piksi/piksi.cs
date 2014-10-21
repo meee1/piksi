@@ -18,6 +18,8 @@ namespace piksi
         public event EventHandler ObsMessage;
         public event EventHandler BasePosMessage;
 
+        header msgobs = new header();
+
         public enum MSG
         {
             MSG_PRINT = 0x10, /**< Piksi  -> Host  */
@@ -504,6 +506,11 @@ namespace piksi
                             // this is packet count number
                             int count = hdr.seq & MSG_OBS_HEADER_SEQ_MASK;
 
+                            if (count == 0)
+                            {
+                                msgobs = msg;
+                            }
+
                             int lenhdr = Marshal.SizeOf(hdr);
 
                             int lenobs = Marshal.SizeOf(new msg_obs_content_t());
@@ -511,6 +518,14 @@ namespace piksi
                             int obscount = (msg.length - lenhdr) / lenobs;
 
                             int linebase = (count > 0) ? 8 : 0;
+
+                            if (count > 0)
+                            {
+                                // resize msgobs payload to include current msg obs
+                                int currentpayloadend = msgobs.payload.Length;
+                                Array.Resize<byte>(ref msgobs.payload, msgobs.payload.Length + obscount * lenobs);
+                                Array.Copy(msg.payload, lenhdr, msgobs.payload, currentpayloadend, obscount * lenobs);
+                            }
 
                             for (int a = 0; a < obscount; a++)
                             {
@@ -521,8 +536,11 @@ namespace piksi
                                 Console.WriteLine("{0,6} {1,10} {2,2} {3,5} {4,11} {5,17}           ",msg.sender , hdr.t.tow , (ob.prn+1) , (ob.snr / MSG_OBS_SNR_MULTIPLIER) , (ob.P / MSG_OBS_P_MULTIPLIER) , (ob.L.Li + (ob.L.Lf / 256.0)));
                             }
 
-                            if (ObsMessage != null)
-                                ObsMessage(msg, null);
+                            if (count == (total - 1))
+                            {
+                                if (ObsMessage != null)
+                                    ObsMessage(msgobs, null);
+                            }
                         }
                         else if ((MSG)msg.msgtype == MSG.MSG_BASE_POS)
                         {
