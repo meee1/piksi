@@ -525,6 +525,7 @@ namespace piksi
                                 int currentpayloadend = msgobs.payload.Length;
                                 Array.Resize<byte>(ref msgobs.payload, msgobs.payload.Length + obscount * lenobs);
                                 Array.Copy(msg.payload, lenhdr, msgobs.payload, currentpayloadend, obscount * lenobs);
+                                msgobs.length += (byte)(obscount * lenobs);
                             }
 
                             for (int a = 0; a < obscount; a++)
