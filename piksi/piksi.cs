@@ -519,7 +519,8 @@ namespace piksi
 
                             int linebase = (count > 0) ? 8 : 0;
 
-                            if (count > 0)
+                            //todo add tow check
+                            if (count > 0 && msgobs.payload != null)
                             {
                                 // resize msgobs payload to include current msg obs
                                 int currentpayloadend = msgobs.payload.Length;
