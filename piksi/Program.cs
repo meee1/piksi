@@ -42,17 +42,6 @@ self.link.send_message(sbp_piksi.SETTINGS, 'uart_uarta\0sbp_message_mask\0%s\0' 
 
         static void Main(string[] args)
         {
-            /*
-            BinaryReader br = new BinaryReader(File.OpenRead(@"C:\Users\he56640\Desktop\stuff\sbp.raw"));
-
-            while (br.BaseStream.Position < br.BaseStream.Length)
-            {
-                pk.read(br.ReadByte());
-            }
-
-            return;
-            */
-
             if (args.Length != 3)
             {
                 Console.WriteLine("Piksi v0.1.1 beta By Michael Oborne");
