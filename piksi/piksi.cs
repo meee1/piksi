@@ -8,7 +8,7 @@ using u8 = System.Byte;
 using u16 = System.UInt16;
 using s32 = System.Int32;
 using u32 = System.UInt32;
-using gps_time_t = System.UInt64;
+//using gps_time_t = System.UInt64;
 using System.Runtime.InteropServices;
 
 namespace piksi
@@ -19,6 +19,8 @@ namespace piksi
         public event EventHandler BasePosMessage;
 
         header msgobs = new header();
+
+        int printline = 60;
 
         public enum MSG
         {
@@ -93,6 +95,58 @@ namespace piksi
             SBP_VEL_ECEF = 0x0204,
             SBP_VEL_NED = 0x0205,
         }
+
+
+        //----------------------------------------------------------
+        //----------------------------------------------------------
+        //----------------------------------------------------------
+        //----------------------------------------------------------
+        //----------------------------------------------------------
+        //----------------------------------------------------------
+        //----------------------------------------------------------
+        //----------------------------------------------------------
+        //[StructLayout(LayoutKind.Sequential, Pack = 1)]
+        struct channel_measurement_t
+        {
+            public u8 prn;
+            public double code_phase_chips;
+            public double code_phase_rate;
+            public double carrier_phase;
+            public double carrier_freq;
+            public u32 time_of_week_ms;
+            public double receiver_time;
+            public double snr;
+        }
+
+        //[StructLayout(LayoutKind.Sequential, Pack = 1)]
+        struct navigation_measurement_t
+        {
+            public double raw_pseudorange;
+            public double pseudorange;
+            public double carrier_phase;
+            public double raw_doppler;
+            public double doppler;
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 3)]
+            public double[] sat_pos;
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 3)]
+            public double[] sat_vel;
+            public double snr;
+            public double lock_time;
+            public gps_time_t tot;
+            public u8 prn;
+        }
+
+         [StructLayout(LayoutKind.Sequential, Pack = 1)]
+        struct gps_time_t
+        {
+            public double tow; /**< Seconds since the GPS start of week. */
+            public u16 wn;     /**< GPS week number. */
+} 
+
+
+        //----------------------------------------------------------
+
+
 
         public const int MSG_OBS_HEADER_SEQ_SHIFT = 4;
         public const int MSG_OBS_HEADER_SEQ_MASK = ((1 << 4) - 1);
@@ -563,8 +617,13 @@ namespace piksi
                         }
                         else if ((MSG)msg.msgtype == MSG.MSG_PRINT)
                         {
-                            Console.SetCursorPosition(0,14);
-                            Console.Write(ASCIIEncoding.ASCII.GetString(msg.payload));
+                            Console.SetCursorPosition(0, printline);
+                            Console.Write(printline + " " +ASCIIEncoding.ASCII.GetString(msg.payload));
+
+                            printline++;
+
+                            if (printline > 68)
+                                printline = 58;
                         }
                         else if ((MSG)msg.msgtype == MSG.MSG_TRACKING_STATE)
                         {
@@ -623,10 +682,26 @@ namespace piksi
                         {
                             //var test = msg.payload.ByteArrayToStructure<>(0);
                         }
+                        else if (msg.msgtype == 0x207)
+                        {
+                            int lenitem = Marshal.SizeOf(new channel_measurement_t());
+
+                            var test = msg.payload.ByteArrayToStructure<channel_measurement_t>(0);
+                            Console.SetCursorPosition(0, 19 + test.prn);
+                            Console.WriteLine("{0} {1} {2} {3} {4}",test.prn,test.time_of_week_ms,test.receiver_time,test.code_phase_chips,test.code_phase_rate);
+                        }
+                        else if (msg.msgtype == 0x208)
+                        {
+                            int lenitem = Marshal.SizeOf(new navigation_measurement_t());
+
+                            var test = msg.payload.ByteArrayToStructure<navigation_measurement_t>(0);
+                            Console.SetCursorPosition(0, 26 + test.prn);
+                            Console.WriteLine("{0} {1} {2} {3} {4} {5} {6}",test.prn+1,test.raw_pseudorange,test.pseudorange,test.tot.tow,test.lock_time,test.doppler, test.raw_doppler);
+                        }
                         else
                         {
                             Console.SetCursorPosition(0, 5);
-                            Console.WriteLine((MSG)msg.msgtype + " " + msg.length + " " + msg.sender);
+                            Console.WriteLine("UNK: "+(MSG)msg.msgtype + " " + msg.length + " " + msg.sender);
                         }
                     }
                     else

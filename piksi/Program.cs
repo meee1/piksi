@@ -120,6 +120,21 @@ G                                                           SYS / PHASE SHIFT
 
             comport.Open();
 
+            if (outmode.ToLower() == "trimble")
+            {
+                pk.ObsMessage +=pktrimble_ObsMessage;
+
+                while (true)
+                {
+                    while (comport.BytesToRead > 0)
+                    {
+                        pk.read((byte)comport.ReadByte());
+                    }
+
+                    System.Threading.Thread.Sleep(5);
+                }
+            }
+
             // sbp to rtcm
             if (outmode.ToLower() == "rtcm")
             {
@@ -164,6 +179,55 @@ G                                                           SYS / PHASE SHIFT
             }
 
             Console.ReadLine();
+        }
+
+        private static void pktrimble_ObsMessage(object sender, EventArgs e)
+        {
+            piksi.header msg = (piksi.header)sender;
+
+            var hdr = msg.payload.ByteArrayToStructure<piksi.msg_obs_header_t>(0);
+
+            // relay packet
+            if (msg.sender == 0)
+                return;
+
+            // total is number of packets
+            int total = hdr.seq >> piksi.MSG_OBS_HEADER_SEQ_SHIFT;
+            // this is packet count number
+            int count = hdr.seq & piksi.MSG_OBS_HEADER_SEQ_MASK;
+
+            int lenhdr = Marshal.SizeOf(hdr);
+
+            int lenobs = Marshal.SizeOf(new piksi.msg_obs_content_t());
+
+            int obscount = (msg.length - lenhdr) / lenobs;
+
+            DateTime gpstime = StaticUtils.GetFromGps(hdr.t.wn, hdr.t.tow / 1000.0);
+
+            DateTime local = gpstime.ToLocalTime();
+
+            List<piksi.msg_obs_content_t> obs = new List<piksi.msg_obs_content_t>();
+
+            for (int a = 0; a < obscount; a++)
+            {
+                var ob = msg.payload.ByteArrayToStructure<piksi.msg_obs_content_t>(lenhdr + a * lenobs);
+
+                obs.Add(ob);
+            }
+
+            if (client != null && client.Connected)
+            {
+                try
+                {
+                    if (DateTime.Now.Second % 10 == 0)
+                        Trimble.writeTrimble15(client.GetStream(), hdr.t.wn, hdr.t.tow);
+
+                    Trimble.writeTrimbleR17(client.GetStream(), hdr.t.tow, obs);
+                } catch (Exception) 
+                {
+
+                }
+            }
         }
 
         private static void pkrinex_ObsMessage(object sender, EventArgs e)
