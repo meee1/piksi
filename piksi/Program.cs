@@ -221,7 +221,6 @@ G                                                           SYS / PHASE SHIFT
             catch { }
         }
 
-        static double lastrefcp = 0;
         const double CLIGHT = 299792458.0;   /* speed of light (m/s) */
         static double wl = CLIGHT / 1.57542E9;
 

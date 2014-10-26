@@ -640,7 +640,7 @@ const double GPS_C =299792458.0;
 
                                 Console.SetCursorPosition(0, 15 + a + linebase);
 
-                                Console.WriteLine("{0,6} {1,10} {2,2} {3,5} {4,11} {5,17}           ",msg.sender , hdr.t.tow , (ob.prn+1) , (ob.snr) , (ob.P / MSG_OBS_P_MULTIPLIER) , (ob.L.Li + (ob.L.Lf / 256.0)));
+                                Console.WriteLine("{0,6} {1,10} {2,2} {3,5} {4,11} {5,17}           ",msg.sender , hdr.t.tow , (ob.prn+1) , (ob.snr) , (ob.P / MSG_OBS_P_MULTIPLIER).ToString("0.00") , (ob.L.Li + (ob.L.Lf / 256.0)).ToString("0.000000"));
                             }
 
                             if (count == (total - 1))
@@ -788,7 +788,7 @@ const double GPS_C =299792458.0;
 
                             var test = msg.payload.ByteArrayToStructure<ephemeris_t>(0);
 
-                            File.WriteAllBytes(test.prn + ".eph", msg.payload);
+                            File.WriteAllBytes((test.prn+1) + ".eph", msg.payload);
 
                             if (EphMessage != null)
                                 EphMessage(msg, null);
