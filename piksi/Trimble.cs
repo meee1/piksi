@@ -226,6 +226,8 @@ namespace piksi
 
         private static int trimblerawreply;
 
+        private static double[] cpold = new double[33];
+
         public static void writeTrimbleR17(Stream outputto, double towinms, List<piksi.msg_obs_content_t> obs)
         {
             CdatType17 type = new CdatType17
@@ -263,7 +265,8 @@ namespace piksi
                     type.svMeas[type.nMeasurementSets].snCountsL1 = obs[i].snr;
                     type.svMeas[type.nMeasurementSets].pseudorange = obs[i].P / piksi.MSG_OBS_P_MULTIPLIER;
                     type.svMeas[type.nMeasurementSets].phaseL1 = (obs[i].L.Li + (obs[i].L.Lf / 256.0));
-                    type.svMeas[type.nMeasurementSets].doppler = 0.0;
+                    type.svMeas[type.nMeasurementSets].doppler = type.svMeas[type.nMeasurementSets].phaseL1 - cpold[obs[i].prn];
+                    cpold[obs[i].prn] = type.svMeas[type.nMeasurementSets].phaseL1;
                     type.svMeas[type.nMeasurementSets].lidcpr = 0.0;
                     CdatType17.measT st1 = type.svMeas[type.nMeasurementSets];
                     st1.flags1 = (byte)(st1.flags1 | 0x40); // l1 data valid
@@ -447,6 +450,91 @@ namespace piksi
 
             Array.Reverse(temp);
             outStream.Write(temp, 0, temp.Length);
+        }
+
+        const double SC2RAD = 3.1415926535898;   /* semi-circle to radian (IS-GPS) */
+
+        public static void writeTrimble55_1(Stream outputto, piksi.ephemeris_t es, int prn)
+        {
+            MemoryStream dat = new MemoryStream();
+
+            BinaryWriter bw = new BinaryWriter(dat);
+
+            bw.Write((byte)0x02);
+            bw.Write((byte)0x00);
+            bw.Write((byte)tcomType.RET_SVDATA);
+            bw.Write((byte)(180 - 4)); // 4 for header
+
+            reverseEndian(bw, (byte)0x1); // Data type
+            reverseEndian(bw, (byte)prn);
+
+            //int tow = (int)time2gpst(es.ttr, ref weekwork);
+            //int toc = (int)time2gpst(es.toc, ref weekwork);
+            //int toe = (int)time2gpst(es.toe, ref weekwork);
+
+            //if (toe < tow)
+            {
+              //  weekwork--;
+            }
+
+            //int iodc =
+
+            reverseEndian(bw, (ushort)(es.toe.wn));
+            reverseEndian(bw, (ushort)0);//es.iodc);
+            reverseEndian(bw, (byte)0); // res
+            reverseEndian(bw, (byte)0);//es.iode);
+            reverseEndian(bw, (int)es.toc.tow);
+            reverseEndian(bw, (int)es.toc.tow);
+            reverseEndian(bw, (int)es.toe.tow);
+            reverseEndian(bw, (double)es.tgd); // check scale ex -1.72294676303864e-8
+            reverseEndian(bw, (double)es.af2);
+            reverseEndian(bw, (double)es.af1);
+            reverseEndian(bw, (double)es.af0);
+            reverseEndian(bw, (double)es.crs);
+            reverseEndian(bw, (double)es.dn / SC2RAD);
+            reverseEndian(bw, (double)es.m0 / SC2RAD);
+            reverseEndian(bw, (double)es.cuc / SC2RAD);
+            reverseEndian(bw, (double)es.ecc);
+            reverseEndian(bw, (double)es.cus / SC2RAD);
+            reverseEndian(bw, (double)es.sqrta); // checkme
+            reverseEndian(bw, (double)es.cic / SC2RAD);
+            reverseEndian(bw, (double)es.omega0 / SC2RAD);
+            reverseEndian(bw, (double)es.cis / SC2RAD);
+            reverseEndian(bw, (double)es.inc / SC2RAD);
+            reverseEndian(bw, (double)es.crc);
+            reverseEndian(bw, (double)es.w / SC2RAD);
+            reverseEndian(bw, (double)es.omegadot / SC2RAD);
+            reverseEndian(bw, (double)es.inc_dot / SC2RAD);
+
+            uint flags = 0;
+
+            //flags = flags | (uint)(es.flag & 1);
+            //flags = flags | (uint)((es.code & 3) << 1);
+            flags = flags | (uint)((1) << 3);
+            flags = flags | (uint)((es.healthy & 63) << 4);
+            //flags = flags | (uint)(((uint)es.fit & 1) << 10);
+            //flags = flags | (uint)((es.sva & 15) << 11);
+            //flags = flags | (uint)((raw.alm[sat - 1].svconf & 7) << 16);
+            flags = flags | (uint)((0) << 19);
+
+            reverseEndian(bw, (int)flags);
+
+            // exclude startchar
+            bw.Seek(1, SeekOrigin.Begin);
+            int num = 0;
+            while (dat.Position < dat.Length)
+            {
+                byte num2 = (byte)dat.ReadByte();
+                num = (byte)(num + num2);
+            }
+
+            bw = new BinaryWriter(outputto);
+
+            bw.Write(dat.ToArray(), 0, (int)dat.Length);
+
+            CtcomTail tail = new CtcomTail();
+            tail.checksum = (byte)num;
+            tail.writeToStream(bw);
         }
 
     }

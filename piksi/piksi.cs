@@ -17,10 +17,21 @@ namespace piksi
     {
         public event EventHandler ObsMessage;
         public event EventHandler BasePosMessage;
+        public event EventHandler EphMessage;
 
         header msgobs = new header();
 
         int printline = 60;
+
+        /** Approximate average distance to the GPS satellites in m. */
+        const double GPS_NOMINAL_RANGE = 22.980e6;
+
+/** GPS C/A code chipping rate in Hz. */
+const double GPS_CA_CHIPPING_RATE =1.023e6;
+
+        /** The official GPS value of the speed of light in m / s. 
+ * \note This is the exact value of the speed of light in vacuum (by the definition of meters). */
+const double GPS_C =299792458.0;
 
         public enum MSG
         {
@@ -70,7 +81,7 @@ namespace piksi
 
             MSG_OBS = 0x41, /**< Piksi  -> Host  */
             MSG_OLD_OBS = 0x42, /**< Piksi  -> Host  */
-            MSG_PACKED_OBS = 0x43,  /**< Piksi  -> Host  */
+            MSG_PACKED_OBS = 0x45,  /**< Piksi  -> Host  */
 
             MSG_BASE_POS = 0x44,
 
@@ -137,12 +148,24 @@ namespace piksi
         }
 
          [StructLayout(LayoutKind.Sequential, Pack = 1)]
-        struct gps_time_t
+        public struct gps_time_t
         {
             public double tow; /**< Seconds since the GPS start of week. */
             public u16 wn;     /**< GPS week number. */
-} 
+}
 
+         public struct ephemeris_t {
+             public double tgd;
+             public double crs, crc, cuc, cus, cic, cis;
+             public double dn, m0, ecc, sqrta, omega0, omegadot, w, inc, inc_dot;
+             public double af0, af1, af2;
+             public gps_time_t toe, toc;
+             public u8 valid;
+             public u8 healthy;
+             public u8 prn;
+}
+
+         double nav_tc = 0;
 
         //----------------------------------------------------------
 
@@ -337,6 +360,7 @@ namespace piksi
             public Ls L;
             public u8 snr;    /**< Signal-to-Noise ratio (cn0 * 4 for 0.25 precision and
                   0-64 range) */
+            public u16 lock_counter; /**< Lock counter. Increments on new lock. */
             public u8 prn;    /**< Satellite number. */
         }
 
@@ -387,9 +411,35 @@ namespace piksi
         /** Value defining maximum SBP packet size */
         public const int SBP_FRAMING_MAX_PAYLOAD_SIZE = 255;
 
+        public void GetSettings()
+        {
+            for (int a = 0; a < 100; a++)
+            {
+                GeneratePacket(a, MSG.MSG_SETTINGS_READ_BY_INDEX);
+            }
+        }
+
+        public void SendAllUartA()
+        {
+            // section, setting, value, formattype
+              GeneratePacket("uart_uarta\0sbp_message_mask\065535\0", MSG.MSG_SETTINGS);
+        }
+
         public byte[] GeneratePacket(object indata, MSG msgtype)
         {
-            byte[] data = StaticUtils.StructureToByteArray(indata);
+            byte[] data = new byte[0];
+
+            if (indata == null) {
+
+            } 
+            else if (indata is string)
+            {
+                data = ASCIIEncoding.ASCII.GetBytes((string)indata);
+            }
+            else if (indata.GetType().IsValueType)
+            {
+                data = StaticUtils.StructureToByteArray(indata);
+            }
 
             byte[] packet = new u8[data.Length + 6 + 2];
 
@@ -571,7 +621,7 @@ namespace piksi
 
                             int obscount = (msg.length - lenhdr) / lenobs;
 
-                            int linebase = (count > 0) ? 8 : 0;
+                            int linebase = (count > 0) ? 7 : 0;
 
                             //todo add tow check
                             if (count > 0 && msgobs.payload != null)
@@ -589,7 +639,7 @@ namespace piksi
 
                                 Console.SetCursorPosition(0, 15 + a + linebase);
 
-                                Console.WriteLine("{0,6} {1,10} {2,2} {3,5} {4,11} {5,17}           ",msg.sender , hdr.t.tow , (ob.prn+1) , (ob.snr / MSG_OBS_SNR_MULTIPLIER) , (ob.P / MSG_OBS_P_MULTIPLIER) , (ob.L.Li + (ob.L.Lf / 256.0)));
+                                Console.WriteLine("{0,6} {1,10} {2,2} {3,5} {4,11} {5,17}           ",msg.sender , hdr.t.tow , (ob.prn+1) , (ob.snr) , (ob.P / MSG_OBS_P_MULTIPLIER) , (ob.L.Li + (ob.L.Lf / 256.0)));
                             }
 
                             if (count == (total - 1))
@@ -635,7 +685,7 @@ namespace piksi
 
                                 Console.SetCursorPosition(65, a / len);
 
-                                Console.WriteLine("{0,2} {1,1} {2,10}",test.prn , test.state, test.cn0);
+                                Console.WriteLine("{0,2} {1,1} {2,10}",test.prn+1 , test.state, test.cn0);
                             }
 
                         }
@@ -653,6 +703,7 @@ namespace piksi
                         }
                         else if ((MSG)msg.msgtype == MSG.SBP_HEARTBEAT)
                         {
+                            Console.WriteLine("HB");
                             //Console.Clear();
                             //Console.SetCursorPosition(0, 0);
                         }
@@ -660,7 +711,7 @@ namespace piksi
                         {
                             var test = msg.payload.ByteArrayToStructure<acq_result_msg_t>(0);
                             Console.SetCursorPosition(0, 7);
-                            Console.WriteLine("aqn\t" + test.prn + "\t" + test.snr.ToString("0.00") + "\t" + test.cp + "\t" + test.cf + "\t\t");
+                            Console.WriteLine("aqn\t" + (test.prn+1) + "\t" + test.snr.ToString("0.00") + "\t" + test.cp + "\t" + test.cf + "\t\t");
                         }
                         else if ((MSG)msg.msgtype == MSG.MSG_SETTINGS_READ_BY_INDEX)
                         {
@@ -682,13 +733,45 @@ namespace piksi
                         {
                             //var test = msg.payload.ByteArrayToStructure<>(0);
                         }
+                        else if ((MSG)msg.msgtype == MSG.MSG_DEBUG_VAR)
+                        {
+                            var value = BitConverter.ToDouble(msg.payload, 0);
+                            string debug = ASCIIEncoding.ASCII.GetString(msg.payload,8,msg.payload.Length - 8);
+                            Console.SetCursorPosition(0, 59);
+                            Console.WriteLine(debug + " " + (value) + "    ");
+
+                            nav_tc = (value);
+                        }
                         else if (msg.msgtype == 0x207)
                         {
                             int lenitem = Marshal.SizeOf(new channel_measurement_t());
 
-                            var test = msg.payload.ByteArrayToStructure<channel_measurement_t>(0);
-                            Console.SetCursorPosition(0, 19 + test.prn);
-                            Console.WriteLine("{0} {1} {2} {3} {4}",test.prn,test.time_of_week_ms,test.receiver_time,test.code_phase_chips,test.code_phase_rate);
+                            var meas = msg.payload.ByteArrayToStructure<channel_measurement_t>(0);
+                            Console.SetCursorPosition(0, 26 + meas.prn);
+
+                            double nav_time = nav_tc;
+
+                            //rx time rolls over at 262
+                            //Each chip is about 977.5 ns
+                            //The total code period contains 1,023 chips.
+                            //With a chip rate of 1.023 MHz, 1,023 chips last 1 ms; therefore, the C/ A code
+                            //is 1 ms long. This code repeats itself every millisecond.
+                            //http://www.insidegnss.com/node/2898
+
+                            double test = meas.code_phase_chips / GPS_CA_CHIPPING_RATE;
+
+                            double tot = meas.time_of_week_ms * 1e-3;
+                            tot += meas.code_phase_chips / GPS_CA_CHIPPING_RATE;
+                            tot += (nav_time - meas.receiver_time) * meas.code_phase_rate / GPS_CA_CHIPPING_RATE;
+
+                            double carrierphase = meas.carrier_phase;
+                            carrierphase += (nav_time - meas.receiver_time) * meas.carrier_freq;
+
+                            double doppler = meas.carrier_freq;
+
+                            double pr = (tot) * GPS_C;// +GPS_NOMINAL_RANGE;
+
+                            Console.WriteLine("{0,2} {1,17} {2,17} {3,17} {4,17} {5,17}", meas.prn + 1, tot, meas.code_phase_chips, meas.code_phase_rate / 1000.0, carrierphase, pr);
                         }
                         else if (msg.msgtype == 0x208)
                         {
@@ -696,12 +779,21 @@ namespace piksi
 
                             var test = msg.payload.ByteArrayToStructure<navigation_measurement_t>(0);
                             Console.SetCursorPosition(0, 26 + test.prn);
-                            Console.WriteLine("{0} {1} {2} {3} {4} {5} {6}",test.prn+1,test.raw_pseudorange,test.pseudorange,test.tot.tow,test.lock_time,test.doppler, test.raw_doppler);
+                            Console.WriteLine("{0} {1} {2} {3} {4} {5} {6} {7}", test.prn + 1, test.raw_pseudorange, test.pseudorange, test.tot.tow, test.lock_time, test.doppler.ToString("0.000"), test.raw_doppler.ToString("0.000"), test.sat_pos[0]);
+                        }
+                        else if (msg.msgtype == 0x209)
+                        {
+                            int lenitem = Marshal.SizeOf(new ephemeris_t());
+
+                            var test = msg.payload.ByteArrayToStructure<ephemeris_t>(0);
+
+                            if (EphMessage != null)
+                                EphMessage(msg, null);
                         }
                         else
                         {
                             Console.SetCursorPosition(0, 5);
-                            Console.WriteLine("UNK: "+(MSG)msg.msgtype + " " + msg.length + " " + msg.sender);
+                            Console.WriteLine("UNK: " + (MSG)msg.msgtype + " " + msg.length + " " + msg.sender);
                         }
                     }
                     else

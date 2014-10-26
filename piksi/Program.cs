@@ -38,10 +38,14 @@ self.link.send_message(sbp_piksi.SETTINGS, 'uart_ftdi\0baudrate\0%s\0' % ('10000
          
 import sbp_piksi
 self.link.send_message(sbp_piksi.SETTINGS, 'uart_uarta\0sbp_message_mask\0%s\0' % ('65535'.encode('ascii')))
+
+self.link.send_message(sbp_piksi.RESET, '')
          */
 
         static void Main(string[] args)
         {
+            Console.Clear();
+
             if (args.Length != 3)
             {
                 Console.WriteLine("Piksi v0.1.1 beta By Michael Oborne");
@@ -123,6 +127,11 @@ G                                                           SYS / PHASE SHIFT
             if (outmode.ToLower() == "trimble")
             {
                 pk.ObsMessage +=pktrimble_ObsMessage;
+                pk.EphMessage += pktrimble_EphMessage;
+
+                pk.SendAllUartA();
+
+                pk.GetSettings();
 
                 while (true)
                 {
@@ -179,6 +188,15 @@ G                                                           SYS / PHASE SHIFT
             }
 
             Console.ReadLine();
+        }
+
+        static void pktrimble_EphMessage(object sender, EventArgs e)
+        {
+            piksi.header msg = (piksi.header)sender;
+
+            var eph = msg.payload.ByteArrayToStructure<piksi.ephemeris_t>(0);
+
+            Trimble.writeTrimble55_1(client.GetStream(), eph, eph.prn);
         }
 
         private static void pktrimble_ObsMessage(object sender, EventArgs e)
