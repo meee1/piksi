@@ -242,7 +242,7 @@ namespace piksi
             for (int i = 0; i < obs.Count; i++)
             {
                 {
-                    double[] azel = new double[2] { 45, 45 };
+                    double[] azel = new double[2] { 0, 0 };
                     try
                     {
                         // satazel(myposllh, raw2.satxyzscale[raw.data[i].SV], ref azel);
@@ -508,12 +508,12 @@ namespace piksi
 
             uint flags = 0;
 
-            //flags = flags | (uint)(es.flag & 1);
-            //flags = flags | (uint)((es.code & 3) << 1);
+            flags = flags | (uint)(0 & 1);
+            flags = flags | (uint)((1 & 3) << 1);
             flags = flags | (uint)((1) << 3);
-            flags = flags | (uint)((es.healthy & 63) << 4);
-            //flags = flags | (uint)(((uint)es.fit & 1) << 10);
-            //flags = flags | (uint)((es.sva & 15) << 11);
+            flags = flags | (uint)(((es.healthy-1) & 63) << 4);
+            flags = flags | (uint)(((uint)0 & 1) << 10);
+            flags = flags | (uint)((0 & 15) << 11);
             //flags = flags | (uint)((raw.alm[sat - 1].svconf & 7) << 16);
             flags = flags | (uint)((0) << 19);
 

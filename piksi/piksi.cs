@@ -10,6 +10,7 @@ using s32 = System.Int32;
 using u32 = System.UInt32;
 //using gps_time_t = System.UInt64;
 using System.Runtime.InteropServices;
+using System.IO;
 
 namespace piksi
 {
@@ -24,7 +25,7 @@ namespace piksi
         int printline = 60;
 
         /** Approximate average distance to the GPS satellites in m. */
-        const double GPS_NOMINAL_RANGE = 22.980e6;
+        public const double GPS_NOMINAL_RANGE = 22.980e6;
 
 /** GPS C/A code chipping rate in Hz. */
 const double GPS_CA_CHIPPING_RATE =1.023e6;
@@ -786,6 +787,8 @@ const double GPS_C =299792458.0;
                             int lenitem = Marshal.SizeOf(new ephemeris_t());
 
                             var test = msg.payload.ByteArrayToStructure<ephemeris_t>(0);
+
+                            File.WriteAllBytes(test.prn + ".eph", msg.payload);
 
                             if (EphMessage != null)
                                 EphMessage(msg, null);

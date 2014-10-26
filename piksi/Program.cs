@@ -133,11 +133,30 @@ G                                                           SYS / PHASE SHIFT
 
                 pk.GetSettings();
 
+                DateTime ephdeadline = DateTime.Now.AddSeconds(12);
+
                 while (true)
                 {
                     while (comport.BytesToRead > 0)
                     {
                         pk.read((byte)comport.ReadByte());
+                    }
+
+                    if (ephdeadline < DateTime.Now)
+                    {
+                        string[] files = Directory.GetFiles(".", "*.eph");
+                        foreach (var ephfile in files)
+                        {
+                            byte[] ephbytes = File.ReadAllBytes(ephfile);
+
+                            piksi.header msg = new piksi.header();
+
+                            msg.payload = ephbytes;
+
+                            pktrimble_EphMessage(msg, null);
+                        }
+
+                        ephdeadline = DateTime.Now.AddSeconds(30);
                     }
 
                     System.Threading.Thread.Sleep(5);
@@ -195,9 +214,16 @@ G                                                           SYS / PHASE SHIFT
             piksi.header msg = (piksi.header)sender;
 
             var eph = msg.payload.ByteArrayToStructure<piksi.ephemeris_t>(0);
-
-            Trimble.writeTrimble55_1(client.GetStream(), eph, eph.prn);
+            try
+            {
+                Trimble.writeTrimble55_1(client.GetStream(), eph, eph.prn+1);
+            }
+            catch { }
         }
+
+        static double lastrefcp = 0;
+        const double CLIGHT = 299792458.0;   /* speed of light (m/s) */
+        static double wl = CLIGHT / 1.57542E9;
 
         private static void pktrimble_ObsMessage(object sender, EventArgs e)
         {
