@@ -166,7 +166,7 @@ G                                                           SYS / PHASE SHIFT
             // sbp to rtcm
             if (outmode.ToLower() == "rtcm")
             {
-                pk.ObsMessage += pk_ObsMessage;
+                pk.ObsMessage += pkrtcm_ObsMessage;
 
                 while (true)
                 {
@@ -383,7 +383,7 @@ G                                                           SYS / PHASE SHIFT
 
                 byte[] packet = pk.GeneratePacket(bpos, piksi.MSG.MSG_BASE_POS);
 
-                //comport.Write(packet, 0, packet.Length);
+                comport.Write(packet, 0, packet.Length);
             }
             if (msg2 != null)
             {
@@ -400,7 +400,7 @@ G                                                           SYS / PHASE SHIFT
 
                 byte[] packet = pk.GeneratePacket(bpos, piksi.MSG.MSG_BASE_POS);
 
-               // comport.Write(packet, 0, packet.Length);
+                comport.Write(packet, 0, packet.Length);
             }
         }
 
@@ -544,7 +544,7 @@ G                                                           SYS / PHASE SHIFT
 
      private static int[] lockcount = new int[33];
 
-        static void pk_ObsMessage(object sender, EventArgs e)
+        static void pkrtcm_ObsMessage(object sender, EventArgs e)
         {
             piksi.header msg = (piksi.header)sender;
 
