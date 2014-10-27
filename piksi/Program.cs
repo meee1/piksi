@@ -542,6 +542,8 @@ G                                                           SYS / PHASE SHIFT
          }
      }
 
+     private static int[] lockcount = new int[33];
+
         static void pk_ObsMessage(object sender, EventArgs e)
         {
             piksi.header msg = (piksi.header)sender;
@@ -579,6 +581,12 @@ G                                                           SYS / PHASE SHIFT
                 rtcmob.cp = ob.L.Li + (ob.L.Lf / 256.0);
                 rtcmob.week = hdr.t.wn;
                 rtcmob.tow = hdr.t.tow;
+
+                if (lockcount[rtcmob.prn] == ob.lock_counter)
+                {
+                    rtcmob.raw.lock1 = 127;
+                    lockcount[rtcmob.prn] = ob.lock_counter;
+                }
 
                 t1002.obs.Add(rtcmob);
             }
