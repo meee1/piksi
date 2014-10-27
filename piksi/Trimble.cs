@@ -227,6 +227,7 @@ namespace piksi
         private static int trimblerawreply;
 
         private static double[] cpold = new double[33];
+        private static int[] lockcount = new int[33];
 
         public static void writeTrimbleR17(Stream outputto, double towinms, List<piksi.msg_obs_content_t> obs)
         {
@@ -273,12 +274,13 @@ namespace piksi
                     CdatType17.measT st2 = type.svMeas[type.nMeasurementSets];
                     st2.flags1 = (byte)(st2.flags1 | 0x80); // new positon computed
 
-                    if (true)
+                    if (lockcount[obs[i].prn] == obs[i].lock_counter)
                     {
                         st2.flags1 = (byte)(st2.flags1 | 0x10); // l1 phase valid
                         st2.flags1 = (byte)(st2.flags1 | 0x8); // L1 Phase Lock Point
                     }
 
+                    lockcount[obs[i].prn] = obs[i].lock_counter;
 
                     type.svMeas[type.nMeasurementSets].auxPseudorange = 0.0;
                     CdatType17.measT st21 = type.svMeas[type.nMeasurementSets];
