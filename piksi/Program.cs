@@ -584,15 +584,16 @@ G                                                           SYS / PHASE SHIFT
                 rtcmob.prn = (byte)(ob.prn+1);
                 rtcmob.snr = (byte)(ob.snr);
                 rtcmob.pr = (ob.P / piksi.MSG_OBS_P_MULTIPLIER);
-                rtcmob.cp = ob.L.Li + (ob.L.Lf / 256.0);
+                rtcmob.cp = (ob.L.Li + (ob.L.Lf / 256.0));
                 rtcmob.week = hdr.t.wn;
                 rtcmob.tow = hdr.t.tow;
 
                 if (lockcount[rtcmob.prn] == ob.lock_counter)
                 {
                     rtcmob.raw.lock1 = 127;
-                    lockcount[rtcmob.prn] = ob.lock_counter;
                 }
+
+                lockcount[rtcmob.prn] = ob.lock_counter;
 
                 t1002.obs.Add(rtcmob);
             }
