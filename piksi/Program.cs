@@ -129,10 +129,6 @@ G                                                           SYS / PHASE SHIFT
                 pk.ObsMessage +=pktrimble_ObsMessage;
                 pk.EphMessage += pktrimble_EphMessage;
 
-                pk.SendAllUartA();
-
-                pk.GetSettings();
-
                 DateTime ephdeadline = DateTime.Now.AddSeconds(12);
 
                 while (true)
@@ -147,6 +143,12 @@ G                                                           SYS / PHASE SHIFT
                         string[] files = Directory.GetFiles(".", "*.eph");
                         foreach (var ephfile in files)
                         {
+                            var info = new FileInfo(ephfile);
+
+                            // check age
+                            if (info.LastWriteTime.AddHours(4) < DateTime.Now)
+                                continue;
+
                             byte[] ephbytes = File.ReadAllBytes(ephfile);
 
                             piksi.header msg = new piksi.header();
@@ -214,11 +216,15 @@ G                                                           SYS / PHASE SHIFT
             piksi.header msg = (piksi.header)sender;
 
             var eph = msg.payload.ByteArrayToStructure<piksi.ephemeris_t>(0);
-            try
+
+            if (eph.valid > 0)
             {
-                Trimble.writeTrimble55_1(client.GetStream(), eph, eph.prn+1);
+                try
+                {
+                    Trimble.writeTrimble55_1(client.GetStream(), eph, eph.prn + 1);
+                }
+                catch { }
             }
-            catch { }
         }
 
         const double CLIGHT = 299792458.0;   /* speed of light (m/s) */
