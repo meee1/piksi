@@ -74,10 +74,9 @@ self.link.send_message(sbp_piksi.RESET, '')
                                                             ANT # / TYPE        
         0.0000        0.0000        0.0000                  APPROX POSITION XYZ 
         0.0000        0.0000        0.0000                  ANTENNA: DELTA H/E/N
-G   16 C1C L1C D1C S1C C1W L1W D1W S1W C2W L2W D2W S2W C2X  SYS / # / OBS TYPES 
-       L2X D2X S2X                                          SYS / # / OBS TYPES   
+G    4 C1C L1C D1C S1C                                      SYS / # / OBS TYPES 
 G                                                           SYS / PHASE SHIFT   
-                                                            END OF HEADER  ");
+                                                            END OF HEADER       ");
 
                 pk.ObsMessage += pkrinex_ObsMessage;
 
