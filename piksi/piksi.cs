@@ -128,6 +128,7 @@ const double GPS_C =299792458.0;
             public u32 time_of_week_ms;
             public double receiver_time;
             public double snr;
+            public u16 lock_counter;
         }
 
         //[StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -146,6 +147,7 @@ const double GPS_C =299792458.0;
             public double lock_time;
             public gps_time_t tot;
             public u8 prn;
+            public u16 lock_counter;
         }
 
          [StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -769,6 +771,8 @@ const double GPS_C =299792458.0;
                             carrierphase += (nav_time - meas.receiver_time) * meas.carrier_freq;
 
                             double doppler = meas.carrier_freq;
+
+                            double lock_counter = meas.lock_counter;
 
                             double pr = (tot) * GPS_C;// +GPS_NOMINAL_RANGE;
 
