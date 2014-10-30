@@ -150,6 +150,8 @@ const double GPS_C =299792458.0;
             public u16 lock_counter;
         }
 
+        navigation_measurement_t[] meas_last = new navigation_measurement_t[33];
+
          [StructLayout(LayoutKind.Sequential, Pack = 1)]
         public struct gps_time_t
         {
@@ -752,6 +754,8 @@ const double GPS_C =299792458.0;
                             var meas = msg.payload.ByteArrayToStructure<channel_measurement_t>(0);
                             Console.SetCursorPosition(0, 26 + meas.prn);
 
+                            var nav_meas = new navigation_measurement_t();
+
                             double nav_time = nav_tc;
 
                             //rx time rolls over at 262
@@ -763,20 +767,22 @@ const double GPS_C =299792458.0;
 
                             double test = meas.code_phase_chips / GPS_CA_CHIPPING_RATE;
 
-                            double tot = meas.time_of_week_ms * 1e-3;
-                            tot += meas.code_phase_chips / GPS_CA_CHIPPING_RATE;
-                            tot += (nav_time - meas.receiver_time) * meas.code_phase_rate / GPS_CA_CHIPPING_RATE;
+                            nav_meas.tot.tow = meas.time_of_week_ms * 1e-3;
+                            nav_meas.tot.tow += meas.code_phase_chips / GPS_CA_CHIPPING_RATE;
+                            nav_meas.tot.tow += (nav_time - meas.receiver_time) * meas.code_phase_rate / GPS_CA_CHIPPING_RATE;
 
-                            double carrierphase = meas.carrier_phase;
-                            carrierphase += (nav_time - meas.receiver_time) * meas.carrier_freq;
+                            nav_meas.carrier_phase = meas.carrier_phase;
+                            nav_meas.carrier_phase += (nav_time - meas.receiver_time) * meas.carrier_freq;
 
-                            double doppler = meas.carrier_freq;
+                            nav_meas.raw_doppler = meas.carrier_freq;
 
-                            double lock_counter = meas.lock_counter;
+                            nav_meas.lock_counter = meas.lock_counter;
 
-                            double pr = (tot) * GPS_C;// +GPS_NOMINAL_RANGE;
+                            nav_meas.raw_pseudorange = (Math.Round(nav_meas.tot.tow) - nav_meas.tot.tow) * GPS_C;// +GPS_NOMINAL_RANGE;
 
-                            Console.WriteLine("{0,2} {1,17} {2,17} {3,17} {4,17} {5,17}", meas.prn + 1, tot, meas.code_phase_chips, meas.code_phase_rate / 1000.0, carrierphase, pr);
+                            Console.WriteLine("{0,2} {1,17} {2,17} {3,17} {4,17} {5,17}", meas.prn + 1, nav_meas.tot.tow, meas.code_phase_chips, meas.code_phase_rate / 1000.0, nav_meas.carrier_phase, nav_meas.raw_pseudorange);
+
+                            meas_last[nav_meas.prn] = nav_meas;
                         }
                         else if (msg.msgtype == 0x208)
                         {
