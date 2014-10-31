@@ -41,13 +41,20 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Comms\SerialPort.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Comms\IStreamExtra.cs" />
+    <Compile Include="Comms\TCPClient.cs" />
     <Compile Include="crc.cs" />
     <Compile Include="piksi.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="prsmooth.cs" />
     <Compile Include="RTCM3.cs" />
     <Compile Include="StaticUtils.cs" />
     <Compile Include="Trimble.cs" />
+    <Compile Include="Values.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />

@@ -22,6 +22,12 @@ namespace piksi
 
         header msgobs = new header();
 
+        values prtest = new values();
+        values cptest = new values();
+        values doptest = new values();
+        prsmooth prsmoothdata = new prsmooth();
+
+
         int printline = 60;
 
         /** Approximate average distance to the GPS satellites in m. */
@@ -740,10 +746,13 @@ const double GPS_C =299792458.0;
                         }
                         else if ((MSG)msg.msgtype == MSG.MSG_DEBUG_VAR)
                         {
+                            Console.Clear();
                             var value = BitConverter.ToDouble(msg.payload, 0);
                             string debug = ASCIIEncoding.ASCII.GetString(msg.payload,8,msg.payload.Length - 8);
                             Console.SetCursorPosition(0, 59);
                             Console.WriteLine(debug + " " + (value) + "    ");
+
+
 
                             nav_tc = (value);
                         }
@@ -755,6 +764,8 @@ const double GPS_C =299792458.0;
                             Console.SetCursorPosition(0, 26 + meas.prn);
 
                             var nav_meas = new navigation_measurement_t();
+
+                            nav_meas.prn = meas.prn;
 
                             double nav_time = nav_tc;
 
@@ -780,6 +791,14 @@ const double GPS_C =299792458.0;
 
                             nav_meas.raw_pseudorange = (Math.Round(nav_meas.tot.tow) - nav_meas.tot.tow) * GPS_C;// +GPS_NOMINAL_RANGE;
 
+                            int satno = meas.prn + 1;
+
+
+                            prtest.Add(satno, nav_meas.raw_pseudorange);
+                            cptest.Add(satno, nav_meas.carrier_phase);
+                            doptest.Add(satno, nav_meas.raw_doppler);
+
+                            //Console.WriteLine("{0,2} {1} {2}", satno, nav_meas.raw_doppler, meas.carrier_phase);
                             Console.WriteLine("{0,2} {1,17} {2,17} {3,17} {4,17} {5,17}", meas.prn + 1, nav_meas.tot.tow, meas.code_phase_chips, meas.code_phase_rate / 1000.0, nav_meas.carrier_phase, nav_meas.raw_pseudorange);
 
                             meas_last[nav_meas.prn] = nav_meas;
@@ -789,8 +808,25 @@ const double GPS_C =299792458.0;
                             int lenitem = Marshal.SizeOf(new navigation_measurement_t());
 
                             var test = msg.payload.ByteArrayToStructure<navigation_measurement_t>(0);
+
+                            int satno = test.prn + 1;
+
+                            prtest.Add(satno, test.raw_pseudorange);
+                            cptest.Add(satno, test.carrier_phase);
+                            doptest.Add(satno, test.raw_doppler);
+
+                            double smoothed = prsmoothdata.Add(satno, test.raw_pseudorange, test.carrier_phase);
+
                             Console.SetCursorPosition(0, 26 + test.prn);
-                            Console.WriteLine("{0} {1} {2} {3} {4} {5} {6} {7}", test.prn + 1, test.raw_pseudorange, test.pseudorange, test.tot.tow, test.lock_time, test.doppler.ToString("0.000"), test.raw_doppler.ToString("0.000"), test.sat_pos[0]);
+                            Console.WriteLine("{0,2} rpr {1,16} tot {2,16} lock {3,2} dop {4,10} rdop {5,10} {6}    ", test.prn + 1, test.raw_pseudorange, test.tot.tow, test.lock_time, test.doppler.ToString("0.000"), test.raw_doppler.ToString("0.000"), cptest.linearRegression(satno));
+
+                            var file = File.Open(satno + "-obs.csv", FileMode.Append);
+
+                            string datas = String.Format("{0},{1},{2},{3},{4},{5}\n", test.prn + 1, test.raw_pseudorange, test.carrier_phase, test.doppler, test.snr, test.tot.tow);
+
+                            file.Write(ASCIIEncoding.ASCII.GetBytes(datas),0,datas.Length);
+
+                            file.Close();
                         }
                         else if (msg.msgtype == 0x209)
                         {
@@ -819,3 +855,4 @@ const double GPS_C =299792458.0;
         }
     }
 }
+

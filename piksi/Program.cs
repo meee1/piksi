@@ -1,13 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.IO.Ports;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
+using piksi.Comms;
 
 namespace piksi
 {
@@ -23,7 +23,7 @@ namespace piksi
 
         static TcpClient clientraw;
 
-        static SerialPort comport;
+        static Comms.IStreamExtra inputsource;
 
         static StreamWriter rinexoutput;
 
@@ -116,12 +116,16 @@ G                                                           SYS / PHASE SHIFT
             */
 
 
-    
-            
-            
-            comport = new SerialPort(args[1], int.Parse(args[2]));
+            if (port.ToLower().Contains("tcp://"))
+            {
+                inputsource = new TCPClient(port.ToLower().Replace("tcp://",""), baudrate);
+            }
+            else
+            {
+                inputsource = new SerialPort(port,baudrate);
+            }
 
-            comport.Open();
+            inputsource.Open();
 
             if (outmode.ToLower() == "trimble")
             {
@@ -132,9 +136,9 @@ G                                                           SYS / PHASE SHIFT
 
                 while (true)
                 {
-                    while (comport.BytesToRead > 0)
+                    while (inputsource.dataToRead)
                     {
-                        pk.read((byte)comport.ReadByte());
+                        pk.read((byte)inputsource.ReadByte());
                     }
 
                     if (ephdeadline < DateTime.Now)
@@ -171,9 +175,9 @@ G                                                           SYS / PHASE SHIFT
 
                 while (true)
                 {
-                    while (comport.BytesToRead > 0)
+                    while (inputsource.dataToRead)
                     {
-                        pk.read((byte)comport.ReadByte());
+                        pk.read((byte)inputsource.ReadByte());
                     }
 
                     System.Threading.Thread.Sleep(5);
@@ -192,11 +196,11 @@ G                                                           SYS / PHASE SHIFT
                         rtcm.Read((byte)client.GetStream().ReadByte());
                     }
 
-                    while (comport.BytesToRead > 0)
+                    while (inputsource.dataToRead)
                     {
                         try {
                             byte[] data = new byte[1000];
-                            int len = comport.Read(data,0,data.Length);
+                            int len = inputsource.Read(data,0,data.Length);
                             if (clientraw != null && clientraw.Connected)
                                 clientraw.GetStream().Write(data, 0, len);
                             //pk.read((byte)comport.ReadByte());
@@ -388,7 +392,7 @@ G                                                           SYS / PHASE SHIFT
 
                 byte[] packet = pk.GeneratePacket(bpos, piksi.MSG.MSG_BASE_POS);
 
-                comport.Write(packet, 0, packet.Length);
+                inputsource.Write(packet, 0, packet.Length);
             }
             if (msg2 != null)
             {
@@ -405,7 +409,7 @@ G                                                           SYS / PHASE SHIFT
 
                 byte[] packet = pk.GeneratePacket(bpos, piksi.MSG.MSG_BASE_POS);
 
-                comport.Write(packet, 0, packet.Length);
+                inputsource.Write(packet, 0, packet.Length);
             }
         }
 
@@ -499,7 +503,7 @@ G                                                           SYS / PHASE SHIFT
 
 
             //Console.WriteLine();
-            comport.Write(allbytes, 0, allbytes.Length);
+            inputsource.Write(allbytes, 0, allbytes.Length);
 
             //foreach (var ch in allbytes)
             {
