@@ -815,16 +815,18 @@ const double GPS_C =299792458.0;
                             cptest.Add(satno, test.carrier_phase);
                             doptest.Add(satno, test.raw_doppler);
 
-                            double smoothed = prsmoothdata.Add(satno, test.raw_pseudorange, test.carrier_phase);
+                            double lam1 = 299792458.0 / 1.57542E9;
+
+                            double smoothed = prsmoothdata.Add(satno, test.raw_pseudorange, test.carrier_phase * lam1);
 
                             Console.SetCursorPosition(0, 26 + test.prn);
                             Console.WriteLine("{0,2} rpr {1,16} tot {2,16} lock {3,2} dop {4,10} rdop {5,10} {6}    ", test.prn + 1, test.raw_pseudorange, test.tot.tow, test.lock_time, test.doppler.ToString("0.000"), test.raw_doppler.ToString("0.000"), cptest.linearRegression(satno));
 
                             var file = File.Open(satno + "-obs.csv", FileMode.Append);
 
-                            string datas = String.Format("{0},{1},{2},{3},{4},{5}\n", test.prn + 1, test.raw_pseudorange, test.carrier_phase, test.doppler, test.snr, test.tot.tow);
+                            string datas = String.Format("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14},{15}\n", test.raw_pseudorange, test.pseudorange, test.carrier_phase, test.raw_doppler, test.doppler, test.sat_pos[0], test.sat_pos[1], test.sat_pos[2], test.sat_vel[0], test.sat_vel[1], test.sat_vel[2], test.snr, test.lock_time, test.tot.tow, test.prn, test.lock_counter);
 
-                            file.Write(ASCIIEncoding.ASCII.GetBytes(datas),0,datas.Length);
+                            file.Write(ASCIIEncoding.ASCII.GetBytes(datas), 0, datas.Length);
 
                             file.Close();
                         }
@@ -834,7 +836,7 @@ const double GPS_C =299792458.0;
 
                             var test = msg.payload.ByteArrayToStructure<ephemeris_t>(0);
 
-                            File.WriteAllBytes((test.prn+1) + ".eph", msg.payload);
+                            File.WriteAllBytes((test.prn + 1) + ".eph", msg.payload);
 
                             if (EphMessage != null)
                                 EphMessage(msg, null);
