@@ -746,7 +746,7 @@ const double GPS_C =299792458.0;
                         }
                         else if ((MSG)msg.msgtype == MSG.MSG_DEBUG_VAR)
                         {
-                            Console.Clear();
+                           // Console.Clear();
                             var value = BitConverter.ToDouble(msg.payload, 0);
                             string debug = ASCIIEncoding.ASCII.GetString(msg.payload,8,msg.payload.Length - 8);
                             Console.SetCursorPosition(0, 59);
@@ -797,6 +797,14 @@ const double GPS_C =299792458.0;
                             prtest.Add(satno, nav_meas.raw_pseudorange);
                             cptest.Add(satno, nav_meas.carrier_phase);
                             doptest.Add(satno, nav_meas.raw_doppler);
+
+                            var file = File.Open(satno + "-chmeas.csv", FileMode.Append);
+
+                            string datas = String.Format("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9}\n", meas.prn, meas.code_phase_chips, meas.code_phase_rate, meas.carrier_phase, meas.carrier_freq, meas.time_of_week_ms, meas.receiver_time, meas.snr, meas.lock_counter, nav_tc);
+
+                            file.Write(ASCIIEncoding.ASCII.GetBytes(datas), 0, datas.Length);
+
+                            file.Close();
 
                             //Console.WriteLine("{0,2} {1} {2}", satno, nav_meas.raw_doppler, meas.carrier_phase);
                             Console.WriteLine("{0,2} {1,17} {2,17} {3,17} {4,17} {5,17}", meas.prn + 1, nav_meas.tot.tow, meas.code_phase_chips, meas.code_phase_rate / 1000.0, nav_meas.carrier_phase, nav_meas.raw_pseudorange);
