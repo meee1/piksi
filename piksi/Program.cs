@@ -587,7 +587,7 @@ G                                                           SYS / PHASE SHIFT
                 rtcmob.prn = (byte)(ob.prn+1);
                 rtcmob.snr = (byte)(ob.snr);
                 rtcmob.pr = (ob.P / piksi.MSG_OBS_P_MULTIPLIER);
-                rtcmob.cp = (ob.L.Li + (ob.L.Lf / 256.0));
+                rtcmob.cp = -(ob.L.Li + (ob.L.Lf / 256.0));
                 rtcmob.week = hdr.t.wn;
                 rtcmob.tow = hdr.t.tow;
 

@@ -800,7 +800,8 @@ const double GPS_C =299792458.0;
 
                             var file = File.Open(satno + "-chmeas.csv", FileMode.Append);
 
-                            string datas = String.Format("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9}\n", meas.prn, meas.code_phase_chips, meas.code_phase_rate, meas.carrier_phase, meas.carrier_freq, meas.time_of_week_ms, meas.receiver_time, meas.snr, meas.lock_counter, nav_tc);
+                            string datas = String.Format("{0},{1},{2},{3},{4},{5},{6},{7},{8},extra,{9},{10},{11},{12}\n", meas.prn, meas.code_phase_chips, meas.code_phase_rate, meas.carrier_phase, meas.carrier_freq, meas.time_of_week_ms, meas.receiver_time, meas.snr, meas.lock_counter,
+                                nav_tc, nav_meas.tot.tow, nav_meas.carrier_phase, nav_meas.raw_pseudorange);
 
                             file.Write(ASCIIEncoding.ASCII.GetBytes(datas), 0, datas.Length);
 
@@ -828,7 +829,7 @@ const double GPS_C =299792458.0;
                             double smoothed = prsmoothdata.Add(satno, test.raw_pseudorange, test.carrier_phase * lam1);
 
                             Console.SetCursorPosition(0, 26 + test.prn);
-                            Console.WriteLine("{0,2} rpr {1,16} tot {2,16} lock {3,2} dop {4,10} rdop {5,10} {6}    ", test.prn + 1, test.raw_pseudorange, test.tot.tow, test.lock_time, test.doppler.ToString("0.000"), test.raw_doppler.ToString("0.000"), cptest.linearRegression(satno));
+                            Console.WriteLine("{0,2} rpr {1,16} tot {2,16} lock {3,2} dop {4,10} rdop {5,10} {6}    ", test.prn + 1, test.raw_pseudorange, test.tot.tow, test.lock_time, (test.doppler).ToString("0.000"), test.raw_doppler.ToString("0.000"), cptest.linearRegression(satno) * lam1);
 
                             var file = File.Open(satno + "-obs.csv", FileMode.Append);
 
