@@ -45,6 +45,11 @@ namespace piksi.Comms
             base.GetStream().Write(buffer, offset, count);
         }
 
+        public void Write(byte p)
+        {
+            Write(new byte[] { p }, 0, 1);
+        }
+
         public int Read(byte[] buffer, int offset, int count)
         {
             return base.GetStream().Read(buffer, offset, count);

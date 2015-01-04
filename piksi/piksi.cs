@@ -25,6 +25,8 @@ namespace piksi
         values prtest = new values();
         values cptest = new values();
         values doptest = new values();
+        values satdisttest = new values();
+
         prsmooth prsmoothdata = new prsmooth();
 
 
@@ -780,7 +782,7 @@ const double GPS_C =299792458.0;
 
                             nav_meas.tot.tow = meas.time_of_week_ms * 1e-3;
                             nav_meas.tot.tow += meas.code_phase_chips / GPS_CA_CHIPPING_RATE;
-                            nav_meas.tot.tow += (nav_time - meas.receiver_time) * meas.code_phase_rate / GPS_CA_CHIPPING_RATE;
+                            nav_meas.tot.tow += (nav_time - meas.receiver_time) * (meas.code_phase_rate / GPS_CA_CHIPPING_RATE);
 
                             nav_meas.carrier_phase = meas.carrier_phase;
                             nav_meas.carrier_phase += (nav_time - meas.receiver_time) * meas.carrier_freq;
@@ -820,20 +822,26 @@ const double GPS_C =299792458.0;
 
                             int satno = test.prn + 1;
 
+                            double lam1 = 299792458.0 / 1.57542E9;
+
+                            double[] mypos = new double[] { -2444182.6,4625619.0,-3636118.1 };
+
+                            double satdist = Math.Sqrt(Math.Pow(test.sat_pos[0] - mypos[0], 2) + Math.Pow(test.sat_pos[1] - mypos[1], 2) + Math.Pow(test.sat_pos[2] - mypos[2], 2));
+
                             prtest.Add(satno, test.raw_pseudorange);
                             cptest.Add(satno, test.carrier_phase);
                             doptest.Add(satno, test.raw_doppler);
+                            satdisttest.Add(satno,satdist);
 
-                            double lam1 = 299792458.0 / 1.57542E9;
-
-                            double smoothed = prsmoothdata.Add(satno, test.raw_pseudorange, test.carrier_phase * lam1);
+                            double smoothed = prsmoothdata.Add(satno, test.raw_pseudorange, test.carrier_phase * -lam1);
 
                             Console.SetCursorPosition(0, 26 + test.prn);
-                            Console.WriteLine("{0,2} rpr {1,16} tot {2,16} lock {3,2} dop {4,10} rdop {5,10} {6}    ", test.prn + 1, test.raw_pseudorange, test.tot.tow, test.lock_time, (test.doppler).ToString("0.000"), test.raw_doppler.ToString("0.000"), cptest.linearRegression(satno) * lam1);
+                            Console.WriteLine("{0,2} rpr {1,16} tot {2,16} lock {3,2} dop {4,10} cpd {5,10} prd {6} satd {7}   ", test.prn + 1, test.raw_pseudorange, test.tot.tow, test.lock_time, (test.doppler * lam1).ToString("0.000"), (cptest.linearRegression(satno) * -lam1).ToString("0.000"), prtest.linearRegression(satno).ToString("0.000"), satdisttest.linearRegression(satno).ToString("0.000"));
 
                             var file = File.Open(satno + "-obs.csv", FileMode.Append);
 
-                            string datas = String.Format("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14},{15}\n", test.raw_pseudorange, test.pseudorange, test.carrier_phase, test.raw_doppler, test.doppler, test.sat_pos[0], test.sat_pos[1], test.sat_pos[2], test.sat_vel[0], test.sat_vel[1], test.sat_vel[2], test.snr, test.lock_time, test.tot.tow, test.prn, test.lock_counter);
+                            string datas = String.Format("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14},{15},extra,{16}\n", test.raw_pseudorange, test.pseudorange, test.carrier_phase, test.raw_doppler, test.doppler, test.sat_pos[0], test.sat_pos[1], test.sat_pos[2], test.sat_vel[0], test.sat_vel[1], test.sat_vel[2], test.snr, test.lock_time, test.tot.tow, test.prn, test.lock_counter, 
+                                satdist);
 
                             file.Write(ASCIIEncoding.ASCII.GetBytes(datas), 0, datas.Length);
 

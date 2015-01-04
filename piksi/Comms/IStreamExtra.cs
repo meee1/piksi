@@ -19,5 +19,7 @@ namespace piksi.Comms
         void Write(byte[] buffer, int offset, int count);
 
         int Read(byte[] buffer, int offset, int count);
+
+        void Write(byte p);
     }
 }

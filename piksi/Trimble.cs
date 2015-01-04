@@ -1,4 +1,5 @@
-﻿using System;
+﻿using piksi.Comms;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -77,7 +78,7 @@ namespace piksi
             public byte checksum { get; set; }
             public byte postamble = 0x3;
 
-            public void writeToStream(BinaryWriter bw)
+            public void writeToStream(IStreamExtra bw)
             {
                 bw.Write(this.checksum);
                 bw.Write(this.postamble);
@@ -182,7 +183,7 @@ namespace piksi
             return buffer2;
         }
 
-        public static void writeTrimble15(Stream outputto, int week, uint tow)
+        public static void writeTrimble15(IStreamExtra outputto, int week, uint tow)
         {
 
             MemoryStream dat = new MemoryStream();
@@ -213,15 +214,13 @@ namespace piksi
                 num = (byte)(num + num2);
             }
 
-            bw = new BinaryWriter(outputto);
-
             byte[] data = dat.ToArray();
 
-            bw.Write(data, 0, (int)data.Length);
+            outputto.Write(data, 0, (int)data.Length);
 
             CtcomTail tail = new CtcomTail();
             tail.checksum = (byte)(num);
-            tail.writeToStream(bw);
+            tail.writeToStream(outputto);
         }
 
         private static int trimblerawreply;
@@ -229,7 +228,7 @@ namespace piksi
         private static double[] cpold = new double[33];
         private static int[] lockcount = new int[33];
 
-        public static void writeTrimbleR17(Stream outputto, double towinms, List<piksi.msg_obs_content_t> obs)
+        public static void writeTrimbleR17(IStreamExtra outputto, double towinms, List<piksi.msg_obs_content_t> obs)
         {
             CdatType17 type = new CdatType17
             {
@@ -266,7 +265,7 @@ namespace piksi
                     type.svMeas[type.nMeasurementSets].snCountsL1 = obs[i].snr;
                     type.svMeas[type.nMeasurementSets].pseudorange = obs[i].P / piksi.MSG_OBS_P_MULTIPLIER;
                     type.svMeas[type.nMeasurementSets].phaseL1 = (obs[i].L.Li + (obs[i].L.Lf / 256.0));
-                    type.svMeas[type.nMeasurementSets].doppler = 0;// (type.svMeas[type.nMeasurementSets].phaseL1 - cpold[obs[i].prn]);
+                    type.svMeas[type.nMeasurementSets].doppler =  (type.svMeas[type.nMeasurementSets].phaseL1 - cpold[obs[i].prn]);
                     cpold[obs[i].prn] = type.svMeas[type.nMeasurementSets].phaseL1;
                     type.svMeas[type.nMeasurementSets].lidcpr = 0.0;
                     CdatType17.measT st1 = type.svMeas[type.nMeasurementSets];
@@ -297,8 +296,6 @@ namespace piksi
 
             writeToStream(new BinaryWriter(dat), type);
 
-            BinaryWriter bw = new BinaryWriter(outputto);
-
             CtcomTail tail = new CtcomTail();
 
             byte packetsize = 244;
@@ -320,25 +317,25 @@ namespace piksi
                     sending = (byte)totalleft;
                 }
 
-                bw.Write((byte)0x02); // stx
-                bw.Write((byte)0x00); // status
-                bw.Write((byte)tcomType.RET_RAWDATA); // type
-                bw.Write((byte)(sending + 4)); // 4 extra for 4 ytes below
+                outputto.Write((byte)0x02); // stx
+                outputto.Write((byte)0x00); // status
+                outputto.Write((byte)tcomType.RET_RAWDATA); // type
+                outputto.Write((byte)(sending + 4)); // 4 extra for 4 ytes below
 
-                bw.Write((byte)0);// record type
+                outputto.Write((byte)0);// record type
                 byte page = Convert.ToByte((int)((pageno << 4) & 240));
                 page = (byte)(page | Convert.ToByte((int)(loops & 15)));
-                bw.Write((byte)page);// page
-                bw.Write((byte)trimblerawreply); // replyno
-                bw.Write((byte)0); // flags - 0 = expanded and no realtimedata
+                outputto.Write((byte)page);// page
+                outputto.Write((byte)trimblerawreply); // replyno
+                outputto.Write((byte)0); // flags - 0 = expanded and no realtimedata
 
                 byte[] packet = dat.ToArray();
 
-                bw.Write(packet, ((int)dat.Length - totalleft), sending);
+                outputto.Write(packet, ((int)dat.Length - totalleft), sending);
 
                 // single bytes only
                 tail.checksum = computeChecksum((byte)0x00, (byte)tcomType.RET_RAWDATA, (byte)(sending), (byte)0, (byte)page, (byte)trimblerawreply, (byte)0, dat, ((int)dat.Length - totalleft));
-                tail.writeToStream(bw);
+                tail.writeToStream(outputto);
                 pageno++;
                 totalleft -= sending;
             }
@@ -456,7 +453,7 @@ namespace piksi
 
         const double SC2RAD = 3.1415926535898;   /* semi-circle to radian (IS-GPS) */
 
-        public static void writeTrimble55_1(Stream outputto, piksi.ephemeris_t es, int prn)
+        public static void writeTrimble55_1(IStreamExtra outputto, piksi.ephemeris_t es, int prn)
         {
             MemoryStream dat = new MemoryStream();
 
@@ -530,13 +527,11 @@ namespace piksi
                 num = (byte)(num + num2);
             }
 
-            bw = new BinaryWriter(outputto);
-
-            bw.Write(dat.ToArray(), 0, (int)dat.Length);
+            outputto.Write(dat.ToArray(), 0, (int)dat.Length);
 
             CtcomTail tail = new CtcomTail();
             tail.checksum = (byte)num;
-            tail.writeToStream(bw);
+            tail.writeToStream(outputto);
         }
 
     }

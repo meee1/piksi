@@ -31,5 +31,10 @@ namespace piksi.Comms
         {
             return (byte)base.ReadByte();
         }
+
+        public void Write(byte p)
+        {
+            Write(new byte[] { p }, 0, 1);
+        }
     }
 }

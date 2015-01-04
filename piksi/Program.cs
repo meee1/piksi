@@ -15,19 +15,21 @@ namespace piksi
     {
         static RTCM3 rtcm = new RTCM3();
 
-        static TcpListener listener = new TcpListener(IPAddress.Any, 989);
+        //static TcpListener listener = new TcpListener(IPAddress.Any, 989);
 
-        static TcpListener listenerraw = new TcpListener(IPAddress.Any, 990);
+        //static TcpListener listenerraw = new TcpListener(IPAddress.Any, 990);
 
-        static TcpClient client;
+        //static TcpClient client;
 
-        static TcpClient clientraw;
+        //static TcpClient clientraw;
 
-        static Comms.IStreamExtra inputsource;
+        static Comms.IStreamExtra inputstream;
+
+        static Comms.IStreamExtra deststream;
 
         static StreamWriter rinexoutput;
 
-        static piksi pk = new piksi();
+        static piksi piksi = new piksi();
 
         /*
 import sbp_piksi
@@ -46,21 +48,27 @@ self.link.send_message(sbp_piksi.RESET, '')
         {
             Console.Clear();
 
-            if (args.Length != 3)
+            if (args.Length < 3)
             {
-                Console.WriteLine("Piksi v0.1.1 beta By Michael Oborne");
-                Console.WriteLine("Usage: program.exe outputformat port baud");
-                Console.WriteLine("outputformat = rtcm,sbp\nport = [comport of piksi]\nbaud = [baudrate of piksi]");
-                Console.WriteLine("rtcm: read sbp from comport and write to tcp port 989");
-                Console.WriteLine("sbp: read rtcm from tcp port 989 and write sbp to comport (either piksi or 3dr radio)");
-                Console.WriteLine();
-                Console.WriteLine("OR program.exe rinex infile.sbp outfile.obs");
-                Console.WriteLine("Copyright Michael Oborne 2014");
+                Console.WriteLine("Piksi v0.1.2 beta By Michael Oborne");
+                Console.WriteLine("Copyright Michael Oborne 2015");
+                Console.WriteLine("Usage: program.exe outputformat source destination");
+                Console.WriteLine("outputformat = rtcm, sbp, trimble, rinex");
+                //Console.WriteLine("rtcm: read sbp from comport and write rtcm to tcp port 989");
+                //Console.WriteLine("sbp: read rtcm from tcp port 989 and write sbp to comport (either piksi or 3dr radio)");
+                //Console.WriteLine("trimble: read sbp from comport and write trimple rt17 tcp port 989");
+                //Console.WriteLine();
+                //Console.WriteLine("OR program.exe rinex infile.sbp outfile.obs");
+                //Console.WriteLine("OTHER on port 990 the raw input read is passed through when output mode is sbp");
+                Console.WriteLine("source/destination can be 'COM? 115200' or 'tcp://host:port' or 'ntrip://user:pass@host/source'");
+                
+                Console.ReadLine();
                 return;
             }
 
             string outmode = args[0];
 
+            // rinex output
             if (outmode.ToLower() == "rinex")
             {
                 rinexoutput = new StreamWriter(args[2]);
@@ -78,13 +86,13 @@ G    4 C1C L1C D1C S1C                                      SYS / # / OBS TYPES
 G                                                           SYS / PHASE SHIFT   
                                                             END OF HEADER       ");
 
-                pk.ObsMessage += pkrinex_ObsMessage;
+                piksi.ObsMessage += pkrinex_ObsMessage;
 
                 BinaryReader br = new BinaryReader(File.OpenRead(args[1]));
 
                 while (br.BaseStream.Position < br.BaseStream.Length)
                 {
-                    pk.read(br.ReadByte());
+                    piksi.read(br.ReadByte());
                 }
 
                 rinexoutput.Close();
@@ -92,53 +100,75 @@ G                                                           SYS / PHASE SHIFT
                 return;
             }
 
+            //listener.Start();
+
+            //listener.BeginAcceptTcpClient(new AsyncCallback(DoAcceptTcpClientCallback), listener);
+
+            //listenerraw.Start();
+
+            //listenerraw.BeginAcceptTcpClient(new AsyncCallback(DoAcceptTcpClientCallbackraw), listenerraw);
+
+            // process other commands
+            int nextarg = 2;
             string port = args[1];
-            int baudrate = int.Parse(args[2]);
 
-            listener.Start();
-
-            listener.BeginAcceptTcpClient(new AsyncCallback(DoAcceptTcpClientCallback), listener);
-
-            listenerraw.Start();
-
-            listenerraw.BeginAcceptTcpClient(new AsyncCallback(DoAcceptTcpClientCallbackraw), listenerraw);
-
-
-            /*
-            BinaryReader br = new BinaryReader(File.OpenRead(@"C:\Users\hog\Desktop\gps data\rtcm3.11004.raw"));
-
-            while (br.BaseStream.Position < br.BaseStream.Length)
-            {
-                rtcm.Read(br.ReadByte());
-            }
-
-            return;
-            */
-
-
+            // input
             if (port.ToLower().Contains("tcp://"))
             {
-                inputsource = new TCPClient(port.ToLower().Replace("tcp://",""), baudrate);
+                inputstream = new TCPClient(port.ToLower().Replace("tcp://",""), int.Parse(port.Split(':')[2]));
+                nextarg = 2;
+            }
+            if (port.ToLower().Contains("ntrip://"))
+            {
+                inputstream = new NTRIP(port.Replace("ntrip://", ""));
+
+                nextarg = 2;
             }
             else
             {
-                inputsource = new SerialPort(port,baudrate);
+                int baudrate = int.Parse(args[2]);
+                inputstream = new SerialPort(port,baudrate);
+
+                nextarg = 3;            
             }
 
-            inputsource.Open();
+            inputstream.Open();
+
+            string portout = args[nextarg];
+            // output
+            if (portout.ToLower().Contains("tcp://"))
+            {
+                deststream = new TCPClient(portout.ToLower().Replace("tcp://", ""), int.Parse(portout.Split(':')[2]));
+                nextarg++;
+            }
+            if (portout.ToLower().Contains("ntrip://"))
+            {
+                deststream = new NTRIP(portout.Replace("ntrip://", ""));
+
+                nextarg++;
+            }
+            else
+            {
+                int baudrate = int.Parse(args[nextarg + 1]);
+                deststream = new SerialPort(portout, baudrate);
+
+                nextarg = nextarg + 2;
+            }
+
+            deststream.Open();
 
             if (outmode.ToLower() == "trimble")
             {
-                pk.ObsMessage +=pktrimble_ObsMessage;
-                pk.EphMessage += pktrimble_EphMessage;
+                piksi.ObsMessage +=pktrimble_ObsMessage;
+                piksi.EphMessage += pktrimble_EphMessage;
 
                 DateTime ephdeadline = DateTime.Now.AddSeconds(12);
 
                 while (true)
                 {
-                    while (inputsource.dataToRead)
+                    while (inputstream.dataToRead)
                     {
-                        pk.read((byte)inputsource.ReadByte());
+                        piksi.read((byte)inputstream.ReadByte());
                     }
 
                     if (ephdeadline < DateTime.Now)
@@ -171,13 +201,13 @@ G                                                           SYS / PHASE SHIFT
             // sbp to rtcm
             if (outmode.ToLower() == "rtcm")
             {
-                pk.ObsMessage += pkrtcm_ObsMessage;
+                piksi.ObsMessage += pkrtcm_ObsMessage;
 
                 while (true)
                 {
-                    while (inputsource.dataToRead)
+                    while (inputstream.dataToRead)
                     {
-                        pk.read((byte)inputsource.ReadByte());
+                        piksi.read((byte)inputstream.ReadByte());
                     }
 
                     System.Threading.Thread.Sleep(5);
@@ -191,20 +221,9 @@ G                                                           SYS / PHASE SHIFT
 
                 while (true)
                 {
-                    while (client != null && client.Available > 0)
+                    while (inputstream.dataToRead)
                     {
-                        rtcm.Read((byte)client.GetStream().ReadByte());
-                    }
-
-                    while (inputsource.dataToRead)
-                    {
-                        try {
-                            byte[] data = new byte[1000];
-                            int len = inputsource.Read(data,0,data.Length);
-                            if (clientraw != null && clientraw.Connected)
-                                clientraw.GetStream().Write(data, 0, len);
-                            //pk.read((byte)comport.ReadByte());
-                        } catch {}
+                        rtcm.Read((byte)inputstream.ReadByte());
                     }
 
                     System.Threading.Thread.Sleep(5);
@@ -224,7 +243,7 @@ G                                                           SYS / PHASE SHIFT
             {
                 try
                 {
-                    Trimble.writeTrimble55_1(client.GetStream(), eph, eph.prn + 1);
+                    Trimble.writeTrimble55_1(deststream, eph, eph.prn + 1);
                 }
                 catch { }
             }
@@ -267,14 +286,14 @@ G                                                           SYS / PHASE SHIFT
                 obs.Add(ob);
             }
 
-            if (client != null && client.Connected)
+            if (deststream != null)
             {
                 try
                 {
                     if (DateTime.Now.Second % 10 == 0)
-                        Trimble.writeTrimble15(client.GetStream(), hdr.t.wn, hdr.t.tow);
+                        Trimble.writeTrimble15(deststream, hdr.t.wn, hdr.t.tow);
 
-                    Trimble.writeTrimbleR17(client.GetStream(), hdr.t.tow, obs);
+                    Trimble.writeTrimbleR17(deststream, hdr.t.tow, obs);
                 } catch (Exception) 
                 {
 
@@ -390,9 +409,9 @@ G                                                           SYS / PHASE SHIFT
                 bpos.pos_lon = llhr[1] * R2D;
                 bpos.pos_alt = llhr[2];
 
-                byte[] packet = pk.GeneratePacket(bpos, piksi.MSG.MSG_BASE_POS);
+                byte[] packet = piksi.GeneratePacket(bpos, piksi.MSG.MSG_BASE_POS);
 
-                inputsource.Write(packet, 0, packet.Length);
+                inputstream.Write(packet, 0, packet.Length);
             }
             if (msg2 != null)
             {
@@ -407,9 +426,9 @@ G                                                           SYS / PHASE SHIFT
                 bpos.pos_lon = llhr[1] * R2D;
                 bpos.pos_alt = llhr[2];
 
-                byte[] packet = pk.GeneratePacket(bpos, piksi.MSG.MSG_BASE_POS);
+                byte[] packet = piksi.GeneratePacket(bpos, piksi.MSG.MSG_BASE_POS);
 
-                inputsource.Write(packet, 0, packet.Length);
+                inputstream.Write(packet, 0, packet.Length);
             }
         }
 
@@ -503,7 +522,7 @@ G                                                           SYS / PHASE SHIFT
 
 
             //Console.WriteLine();
-            inputsource.Write(allbytes, 0, allbytes.Length);
+            inputstream.Write(allbytes, 0, allbytes.Length);
 
             //foreach (var ch in allbytes)
             {
@@ -522,14 +541,14 @@ G                                                           SYS / PHASE SHIFT
 
             // End the operation and display the received data on  
             // the console.
-            using (
+            /*using (
             client = listener.EndAcceptTcpClient(ar))
             {
                 while (client.Connected)
                 {
                     System.Threading.Thread.Sleep(100);
                 }
-            }
+            }*/
         }
 
      private static void DoAcceptTcpClientCallbackraw(IAsyncResult ar)
@@ -541,14 +560,14 @@ G                                                           SYS / PHASE SHIFT
 
          // End the operation and display the received data on  
          // the console.
-         using (
+         /*using (
          clientraw = listener.EndAcceptTcpClient(ar))
          {
              while (clientraw.Connected)
              {
                  System.Threading.Thread.Sleep(100);
              }
-         }
+         }*/
      }
 
      private static int[] lockcount = new int[33];
@@ -605,8 +624,8 @@ G                                                           SYS / PHASE SHIFT
 
             try
             {
-                if (client != null && client.Connected)
-                    client.GetStream().Write(rtcmpacket, 0, rtcmpacket.Length);
+                if (deststream != null)
+                    deststream.Write(rtcmpacket, 0, rtcmpacket.Length);
             }
             catch { }
         }
