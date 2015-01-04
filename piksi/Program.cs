@@ -48,18 +48,17 @@ self.link.send_message(sbp_piksi.RESET, '')
         {
             Console.Clear();
 
-            if (args.Length < 3)
+           // if (args.Length < 3)
             {
                 Console.WriteLine("Piksi v0.1.2 beta By Michael Oborne");
                 Console.WriteLine("Copyright Michael Oborne 2015");
                 Console.WriteLine("Usage: program.exe outputformat source destination");
                 Console.WriteLine("outputformat = rtcm, sbp, trimble, rinex");
-                //Console.WriteLine("rtcm: read sbp from comport and write rtcm to tcp port 989");
-                //Console.WriteLine("sbp: read rtcm from tcp port 989 and write sbp to comport (either piksi or 3dr radio)");
-                //Console.WriteLine("trimble: read sbp from comport and write trimple rt17 tcp port 989");
-                //Console.WriteLine();
-                //Console.WriteLine("OR program.exe rinex infile.sbp outfile.obs");
-                //Console.WriteLine("OTHER on port 990 the raw input read is passed through when output mode is sbp");
+                Console.WriteLine("rtcm = read sbp from source and output rtcm to destination");
+                Console.WriteLine("sbp = read rtcm from source and output sbp to destination");
+                Console.WriteLine("trimble = read sbp from source and output trimble rt17 to destination");
+                Console.WriteLine("rinex = read sbp from source file and output rinex to destination file");
+                Console.WriteLine();
                 Console.WriteLine("source/destination can be 'COM? 115200' or 'tcp://host:port' or 'ntrip://user:pass@host/source'");
                 
                 Console.ReadLine();
