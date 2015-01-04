@@ -48,7 +48,7 @@ self.link.send_message(sbp_piksi.RESET, '')
         {
             Console.Clear();
 
-           // if (args.Length < 3)
+            if (args.Length < 3)
             {
                 Console.WriteLine("Piksi v0.1.2 beta By Michael Oborne");
                 Console.WriteLine("Copyright Michael Oborne 2015");
@@ -57,7 +57,7 @@ self.link.send_message(sbp_piksi.RESET, '')
                 Console.WriteLine("rtcm = read sbp from source and output rtcm to destination");
                 Console.WriteLine("sbp = read rtcm from source and output sbp to destination");
                 Console.WriteLine("trimble = read sbp from source and output trimble rt17 to destination");
-                Console.WriteLine("rinex = read sbp from source file and output rinex to destination file");
+                Console.WriteLine("rinex = read sbp from source file and output rinex to destination file (Files only)");
                 Console.WriteLine();
                 Console.WriteLine("source/destination can be 'COM? 115200' or 'tcp://host:port' or 'ntrip://user:pass@host/source'");
                 
@@ -158,7 +158,7 @@ G                                                           SYS / PHASE SHIFT
 
             if (outmode.ToLower() == "trimble")
             {
-                piksi.ObsMessage +=pktrimble_ObsMessage;
+                piksi.ObsMessage += pktrimble_ObsMessage;
                 piksi.EphMessage += pktrimble_EphMessage;
 
                 DateTime ephdeadline = DateTime.Now.AddSeconds(12);
