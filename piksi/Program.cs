@@ -404,7 +404,7 @@ G                                                           SYS / PHASE SHIFT
 
                 byte[] packet = piksi.GeneratePacket(bpos, piksi.MSG.MSG_BASE_POS);
 
-                inputstream.Write(packet, 0, packet.Length);
+                deststream.Write(packet, 0, packet.Length);
             }
             if (msg2 != null)
             {
@@ -421,7 +421,7 @@ G                                                           SYS / PHASE SHIFT
 
                 byte[] packet = piksi.GeneratePacket(bpos, piksi.MSG.MSG_BASE_POS);
 
-                inputstream.Write(packet, 0, packet.Length);
+                deststream.Write(packet, 0, packet.Length);
             }
         }
 
@@ -515,7 +515,7 @@ G                                                           SYS / PHASE SHIFT
 
 
             //Console.WriteLine();
-            inputstream.Write(allbytes, 0, allbytes.Length);
+            deststream.Write(allbytes, 0, allbytes.Length);
 
             //foreach (var ch in allbytes)
             {
@@ -524,44 +524,6 @@ G                                                           SYS / PHASE SHIFT
 
             //Console.ReadLine();
         }
-
-     private static void DoAcceptTcpClientCallback(IAsyncResult ar)
-        {
-            // Get the listener that handles the client request.
-            TcpListener listener = (TcpListener)ar.AsyncState;
-
-            listener.BeginAcceptTcpClient(new AsyncCallback(DoAcceptTcpClientCallback), listener);
-
-            // End the operation and display the received data on  
-            // the console.
-            /*using (
-            client = listener.EndAcceptTcpClient(ar))
-            {
-                while (client.Connected)
-                {
-                    System.Threading.Thread.Sleep(100);
-                }
-            }*/
-        }
-
-     private static void DoAcceptTcpClientCallbackraw(IAsyncResult ar)
-     {
-         // Get the listener that handles the client request.
-         TcpListener listener = (TcpListener)ar.AsyncState;
-
-         listener.BeginAcceptTcpClient(new AsyncCallback(DoAcceptTcpClientCallbackraw), listener);
-
-         // End the operation and display the received data on  
-         // the console.
-         /*using (
-         clientraw = listener.EndAcceptTcpClient(ar))
-         {
-             while (clientraw.Connected)
-             {
-                 System.Threading.Thread.Sleep(100);
-             }
-         }*/
-     }
 
      private static int[] lockcount = new int[33];
 
