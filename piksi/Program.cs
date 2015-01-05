@@ -15,14 +15,6 @@ namespace piksi
     {
         static RTCM3 rtcm = new RTCM3();
 
-        //static TcpListener listener = new TcpListener(IPAddress.Any, 989);
-
-        //static TcpListener listenerraw = new TcpListener(IPAddress.Any, 990);
-
-        //static TcpClient client;
-
-        //static TcpClient clientraw;
-
         static Comms.IStreamExtra inputstream;
 
         static Comms.IStreamExtra deststream;
@@ -50,7 +42,7 @@ self.link.send_message(sbp_piksi.RESET, '')
 
             if (args.Length < 3)
             {
-                Console.WriteLine("Piksi v0.1.2 beta By Michael Oborne");
+                Console.WriteLine("Piksi v0.1.3 beta By Michael Oborne");
                 Console.WriteLine("Copyright Michael Oborne 2015");
                 Console.WriteLine("Usage: program.exe outputformat source destination");
                 Console.WriteLine("outputformat = rtcm, sbp, trimble, rinex");
@@ -59,7 +51,7 @@ self.link.send_message(sbp_piksi.RESET, '')
                 Console.WriteLine("trimble = read sbp from source and output trimble rt17 to destination");
                 Console.WriteLine("rinex = read sbp from source file and output rinex to destination file (Files only)");
                 Console.WriteLine();
-                Console.WriteLine("source/destination can be 'COM? 115200' or 'tcp://host:port' or 'ntrip://user:pass@host/source'");
+                Console.WriteLine("source/destination can be 'COM? 115200' or 'tcp://host:port' or 'ntrip://user:pass@host/source' or 'tcp://0.0.0.0:989'");
                 
                 Console.ReadLine();
                 return;
@@ -98,26 +90,23 @@ G                                                           SYS / PHASE SHIFT
 
                 return;
             }
-
-            //listener.Start();
-
-            //listener.BeginAcceptTcpClient(new AsyncCallback(DoAcceptTcpClientCallback), listener);
-
-            //listenerraw.Start();
-
-            //listenerraw.BeginAcceptTcpClient(new AsyncCallback(DoAcceptTcpClientCallbackraw), listenerraw);
-
+            
             // process other commands
             int nextarg = 2;
             string port = args[1];
 
             // input
-            if (port.ToLower().Contains("tcp://"))
+            if (port.ToLower().Contains("tcp://0.0.0.0"))
+            {
+                inputstream = new TCPServer(int.Parse(port.Split(':')[2]));
+                nextarg = 2;
+            } 
+            else if (port.ToLower().Contains("tcp://"))
             {
                 inputstream = new TCPClient(port.ToLower().Replace("tcp://",""), int.Parse(port.Split(':')[2]));
                 nextarg = 2;
-            }
-            if (port.ToLower().Contains("ntrip://"))
+            } 
+            else if (port.ToLower().Contains("ntrip://"))
             {
                 inputstream = new NTRIP(port.Replace("ntrip://", ""));
 
@@ -135,12 +124,17 @@ G                                                           SYS / PHASE SHIFT
 
             string portout = args[nextarg];
             // output
-            if (portout.ToLower().Contains("tcp://"))
+            if (port.ToLower().Contains("tcp://0.0.0.0"))
+            {
+                deststream = new TCPServer(int.Parse(portout.Split(':')[2]));
+                nextarg = 2;
+            }
+            else if (portout.ToLower().Contains("tcp://"))
             {
                 deststream = new TCPClient(portout.ToLower().Replace("tcp://", ""), int.Parse(portout.Split(':')[2]));
                 nextarg++;
             }
-            if (portout.ToLower().Contains("ntrip://"))
+            else if (portout.ToLower().Contains("ntrip://"))
             {
                 deststream = new NTRIP(portout.Replace("ntrip://", ""));
 
