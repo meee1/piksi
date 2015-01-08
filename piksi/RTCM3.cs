@@ -309,7 +309,7 @@ namespace piksi
                 u32 staid = getbitu(buffer, i, 12); i += 12;
                 double tow = getbitu(buffer, i, 30) * 0.001; i += 30;
                 u32 sync = getbitu(buffer, i, 1); i += 1;
-                u32 nsat = getbitu(buffer, i, 5);
+                u32 nsat = getbitu(buffer, i, 5); i += 5;
 
                 i = 24 + 64;
 
@@ -355,10 +355,20 @@ namespace piksi
 
                     if ((uint)ob.raw.ppr1 != 0xFFF80000)
                     {
+                        double ce = ob.raw.pr1 * 0.02;
+                        double le = ob.raw.pr1 * 0.02 + ob.raw.ppr1 * 0.0005;
+
+                        ce += ob.raw.amb * PRUNIT_GPS;
+                        le += ob.raw.amb * PRUNIT_GPS;
+
+                        le /= lam1;
+
                         ob.prn = ob.raw.prn;
-                        ob.cp = pr1 / lam1 + cp1;
-                        ob.pr = pr1;
+                        ob.cp = le;// pr1 / lam1 + cp1;
+                        ob.pr = ce;// pr1;
                         ob.snr = (byte)(ob.raw.cnr1 * 0.25); // *4.0+0.5
+
+                        double l2range = ob.raw.pr1 * 0.02 + ob.raw.pr21 * 0.02 + ob.raw.amb * PRUNIT_GPS; 
 
                         obs.Add(ob);
 

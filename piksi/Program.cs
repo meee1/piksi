@@ -219,6 +219,12 @@ G                                                           SYS / PHASE SHIFT
                         rtcm.Read((byte)inputstream.ReadByte());
                     }
 
+
+                    while (deststream.dataToRead)
+                    {
+                        piksi.read((byte)deststream.ReadByte());
+                    }
+
                     System.Threading.Thread.Sleep(5);
                 }
             }

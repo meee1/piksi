@@ -101,6 +101,7 @@ const double GPS_C =299792458.0;
 
             MSG_UART_STATE = 0x18, /**< Piksi  -> Host  */
 
+            MSG_EPHEMERIS = 0x1A,  /**< Piksi  -> Host  */
 
             MSG_ACQ_RESULT = 0x15, /**< Piksi  -> Host  */
 
@@ -847,7 +848,7 @@ const double GPS_C =299792458.0;
 
                             file.Close();
                         }
-                        else if (msg.msgtype == 0x209)
+                        else if ((MSG)msg.msgtype == MSG.MSG_EPHEMERIS)
                         {
                             int lenitem = Marshal.SizeOf(new ephemeris_t());
 
