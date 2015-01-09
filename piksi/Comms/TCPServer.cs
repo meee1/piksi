@@ -60,6 +60,8 @@ namespace piksi.Comms
 
         public void Open()
         {
+            Console.WriteLine("Waiting for first connection to "+ listener.Server.LocalEndPoint);
+
             Client = listener.AcceptTcpClient();
 
             // any connection from here on in will auto connect

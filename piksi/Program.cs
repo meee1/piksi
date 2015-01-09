@@ -293,7 +293,8 @@ G                                                           SYS / PHASE SHIFT
                         Trimble.writeTrimble15(deststream, hdr.t.wn, hdr.t.tow);
 
                     Trimble.writeTrimbleR17(deststream, hdr.t.tow, obs);
-                } catch (Exception) 
+                } 
+                catch (Exception) 
                 {
 
                 }

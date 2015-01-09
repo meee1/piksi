@@ -370,6 +370,17 @@ const double GPS_C =299792458.0;
             {
                 public s32 Li;  /**< Carrier phase (integer seconds) */
                 public u8 Lf;   /**< Carrier phase (scaled fractional seconds) */
+
+                public double GetValue()
+                {
+                    return (double)(Li + (Lf / 256.0));
+                }
+
+                public void SetValue(double value)
+                {
+                    Li = (int)value;
+                    Lf = (byte)((value - Li) * 256.0);
+                }
             }        /**< Fixed point carrier phase (seconds) */
             public Ls L;
             public u8 snr;    /**< Signal-to-Noise ratio (cn0 * 4 for 0.25 precision and
