@@ -124,7 +124,7 @@ G                                                           SYS / PHASE SHIFT
 
             string portout = args[nextarg];
             // output
-            if (port.ToLower().Contains("tcp://0.0.0.0"))
+            if (portout.ToLower().Contains("tcp://0.0.0.0"))
             {
                 deststream = new TCPServer(int.Parse(portout.Split(':')[2]));
                 nextarg = 2;
