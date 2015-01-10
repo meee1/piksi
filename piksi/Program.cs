@@ -220,9 +220,9 @@ G                                                           SYS / PHASE SHIFT
                     }
 
 
-                    while (deststream.dataToRead)
+                   // while (deststream.dataToRead)
                     {
-                        piksi.read((byte)deststream.ReadByte());
+                       // piksi.read((byte)deststream.ReadByte());
                     }
 
                     System.Threading.Thread.Sleep(5);

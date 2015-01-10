@@ -8,6 +8,7 @@ using u8 = System.Byte;
 using u16 = System.UInt16;
 using s32 = System.Int32;
 using u32 = System.UInt32;
+using s64 = System.Int64;
 //using gps_time_t = System.UInt64;
 using System.Runtime.InteropServices;
 using System.IO;

@@ -13,6 +13,11 @@ namespace piksi.Comms
 
         public TCPClient(string p1, int p2)
         {
+            int index = p1.IndexOf(':');
+
+            if (index > 0)
+                p1 = p1.Substring(0, index);
+
             this.p1 = p1;
             this.p2 = p2;
         }
