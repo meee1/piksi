@@ -206,6 +206,7 @@ G                                                           SYS / PHASE SHIFT
             if (outmode.ToLower() == "rtcm")
             {
                 piksi.ObsMessage += pkrtcm_ObsMessage;
+                piksi.EphMessage += pkrtcm_EphMessage;
 
                 while (true)
                 {
@@ -241,6 +242,54 @@ G                                                           SYS / PHASE SHIFT
             }
 
             Console.ReadLine();
+        }
+
+        private static void pkrtcm_EphMessage(object sender, EventArgs e)
+        {
+            //RTCM1019 
+            piksi.header msg = (piksi.header)sender;
+
+            var eph = msg.payload.ByteArrayToStructure<piksi.ephemeris_t>(0);
+
+            if (eph.valid > 0)
+            {
+                var ephrtcm = new RTCM3.type1019();
+
+                ephrtcm.A = eph.sqrta;
+                ephrtcm.af0 = eph.af0;
+                ephrtcm.af1 = eph.af1;
+                ephrtcm.af2 = eph.af2;
+                ephrtcm.cic = eph.cic;
+                ephrtcm.cis = eph.cis;
+                ephrtcm.cus = eph.cus;
+                ephrtcm.cuc = eph.cuc;
+                ephrtcm.crc = eph.crc;
+                ephrtcm.crs = eph.crs;
+                ephrtcm.deln = eph.dn;
+                ephrtcm.e = eph.ecc;
+                ephrtcm.i0 = eph.inc;
+                ephrtcm.idot = eph.inc_dot;
+                ephrtcm.M0 = eph.m0;
+                ephrtcm.omg = eph.w;
+                ephrtcm.OMG0 = eph.omega0;
+                ephrtcm.OMGd = eph.omegadot;
+                ephrtcm.prn = eph.prn+1;
+                ephrtcm.sqrtA = eph.sqrta;
+                ephrtcm.tgd = eph.tgd;
+                ephrtcm.toc = eph.toc.tow;
+                ephrtcm.toes = eph.toe.tow;
+                ephrtcm.week = eph.toc.wn;
+                ephrtcm.code = 1;
+
+                byte[] rtcmpacket = rtcm.gen_eph(ephrtcm);
+
+                try
+                {
+                    if (deststream != null)
+                        deststream.Write(rtcmpacket, 0, rtcmpacket.Length);
+                }
+                catch { }
+            }
         }
 
         static void pktrimble_EphMessage(object sender, EventArgs e)

@@ -16,6 +16,7 @@ namespace piksi
     {
         public event EventHandler ObsMessage;
         public event EventHandler BasePosMessage;
+        public event EventHandler EphMessage;
 
         const byte RTCM3PREAMB = 0xD3;
         const double PRUNIT_GPS = 299792.458; /* rtcm ver.3 unit of gps pseudorange (m) */
@@ -24,6 +25,32 @@ namespace piksi
         const double FREQ1 = 1.57542E9;     /* L1/E1  frequency (Hz) */
         const double RANGE_MS = (CLIGHT * 0.001);   /* range in 1 ms */
 
+ const double P2_5  =      0.03125             ; /* 2^-5 */ 
+ const double P2_6  =      0.015625            ; /* 2^-6 */ 
+ const double P2_11 =      4.882812500000000E-04 ; /* 2^-11 */ 
+ const double P2_15 =      3.051757812500000E-05 ; /* 2^-15 */ 
+ const double P2_17 =      7.629394531250000E-06 ; /* 2^-17 */ 
+ const double P2_19 =      1.907348632812500E-06 ; /* 2^-19 */ 
+ const double P2_20 =      9.536743164062500E-07 ; /* 2^-20 */ 
+ const double P2_21 =      4.768371582031250E-07 ; /* 2^-21 */ 
+ const double P2_23 =      1.192092895507810E-07 ; /* 2^-23 */ 
+ const double P2_24 =      5.960464477539063E-08 ; /* 2^-24 */ 
+ const double P2_27 =      7.450580596923828E-09 ; /* 2^-27 */ 
+ const double P2_29 =      1.862645149230957E-09 ; /* 2^-29 */ 
+ const double P2_30 =      9.313225746154785E-10 ; /* 2^-30 */ 
+ const double P2_31 =      4.656612873077393E-10 ; /* 2^-31 */ 
+ const double P2_32 =      2.328306436538696E-10 ; /* 2^-32 */ 
+ const double P2_33 =      1.164153218269348E-10 ; /* 2^-33 */ 
+ const double P2_35 =      2.910383045673370E-11 ; /* 2^-35 */ 
+ const double P2_38 =      3.637978807091710E-12 ; /* 2^-38 */ 
+ const double P2_39 =      1.818989403545856E-12 ; /* 2^-39 */ 
+ const double P2_40 =      9.094947017729280E-13 ; /* 2^-40 */ 
+ const double P2_43 =      1.136868377216160E-13 ; /* 2^-43 */ 
+ const double P2_48 =      3.552713678800501E-15 ; /* 2^-48 */ 
+ const double P2_50 =      8.881784197001252E-16 ; /* 2^-50 */ 
+ const double P2_55 =      2.775557561562891E-17 ; /* 2^-55 */ 
+
+
         static double ROUND(double x)
         {
             return ((s32)Math.Floor((x) + 0.5));
@@ -31,6 +58,11 @@ namespace piksi
         static double ROUND_U(double x)
         {
             return ((u32)Math.Floor((x) + 0.5));
+        }
+
+        static void setbitu(u8[] buff, u32 pos, u32 len, double data)
+        {
+            setbitu(buff, pos, len, (u32)data);
         }
 
         static void setbitu(u8[] buff, u32 pos, u32 len, u32 data)
@@ -46,6 +78,11 @@ namespace piksi
                 else
                     buff[i / 8] &= (byte)(~(1u << (int)(7 - i % 8)));
             }
+        }
+
+        static void setbits(u8[] buff, u32 pos, u32 len, double data)
+        {
+            setbits(buff, pos, len, (s32)data);
         }
 
         static void setbits(u8[] buff, u32 pos, u32 len, s32 data)
@@ -552,6 +589,121 @@ namespace piksi
             }
         }
 
+        public class type1019
+        {
+            public double prn;
+            public double week;
+            public double sva;
+            public double code;
+            public bool fit;
+            public u32 flag;
+            public u32 svh;
+            public double tgd;
+            public double OMGd;
+            public double omg;
+            public double idot;
+            public u32 iode;
+            public double toc;
+            public double af2;
+            public double af1;
+            public double af0;
+            public u32 iodc;
+            public double crs;
+            public double deln;
+            public double cuc;
+            public double M0;
+            public double e;
+            public double cus;
+            public double sqrtA;
+            public double toes;
+            public double cic;
+            public double OMG0;
+            public double cis;
+            public double i0;
+            public double crc;
+            public double A;
+
+
+            public void Read(byte[] buffer)
+            {
+                uint i = 24 + 12;
+
+                prn = getbitu(buffer, i, 6); i += 6;
+                week = getbitu(buffer, i, 10); i += 10;
+                sva = getbitu(buffer, i, 4); i += 4;
+                code = getbitu(buffer, i, 2); i += 2;
+                idot = getbits(buffer, i, 14) * P2_43 * SC2RAD; i += 14;
+                iode = getbitu(buffer, i, 8); i += 8;
+                toc = getbitu(buffer, i, 16) * 16.0; i += 16;
+                af2 = getbits(buffer, i, 8) * P2_55; i += 8;
+                af1 = getbits(buffer, i, 16) * P2_43; i += 16;
+                af0 = getbits(buffer, i, 22) * P2_31; i += 22;
+                iodc = getbitu(buffer, i, 10); i += 10;
+                crs = getbits(buffer, i, 16) * P2_5; i += 16;
+                deln = getbits(buffer, i, 16) * P2_43 * SC2RAD; i += 16;
+                M0 = getbits(buffer, i, 32) * P2_31 * SC2RAD; i += 32;
+                cuc = getbits(buffer, i, 16) * P2_29; i += 16;
+                e = getbitu(buffer, i, 32) * P2_33; i += 32;
+                cus = getbits(buffer, i, 16) * P2_29; i += 16;
+                sqrtA = getbitu(buffer, i, 32) * P2_19; i += 32;
+                toes = getbitu(buffer, i, 16) * 16.0; i += 16;
+                cic = getbits(buffer, i, 16) * P2_29; i += 16;
+                OMG0 = getbits(buffer, i, 32) * P2_31 * SC2RAD; i += 32;
+                cis = getbits(buffer, i, 16) * P2_29; i += 16;
+                i0 = getbits(buffer, i, 32) * P2_31 * SC2RAD; i += 32;
+                crc = getbits(buffer, i, 16) * P2_5; i += 16;
+                omg = getbits(buffer, i, 32) * P2_31 * SC2RAD; i += 32;
+                OMGd = getbits(buffer, i, 24) * P2_43 * SC2RAD; i += 24;
+                tgd = getbits(buffer, i, 8) * P2_31; i += 8;
+                svh = getbitu(buffer, i, 6); i += 6;
+                flag = getbitu(buffer, i, 1); i += 1;
+                fit = getbitu(buffer, i, 1) > 0 ? true : false; /* 0:4hr,1:>4hr */
+
+                A = sqrtA * sqrtA;
+
+            }
+
+            public uint Write(byte[] buffer)
+            {
+                uint i = 24;
+
+                uint toe = (uint)(toes / 16.0);         
+
+                setbitu(buffer, i, 12, 1019); i += 12;
+                setbitu(buffer, i, 6, prn); i += 6;
+                setbitu(buffer, i, 10, week % 1024); i += 10;
+                setbitu(buffer, i, 4, sva); i += 4;
+                setbitu(buffer, i, 2, code); i += 2;
+                setbits(buffer, i, 14, idot / P2_43 / SC2RAD); i += 14;
+                setbitu(buffer, i, 8, iode); i += 8;
+                setbitu(buffer, i, 16, toc / 16.0); i += 16;
+                setbits(buffer, i, 8, af2 / P2_55); i += 8;
+                setbits(buffer, i, 16, af1 / P2_43); i += 16;
+                setbits(buffer, i, 22, af0 / P2_31); i += 22;
+                setbitu(buffer, i, 10, iodc); i += 10;
+                setbits(buffer, i, 16, crs / P2_5); i += 16;
+                setbits(buffer, i, 16, deln / P2_43 / SC2RAD); i += 16;
+                setbits(buffer, i, 32, M0 / P2_31 / SC2RAD); i += 32;
+                setbits(buffer, i, 16, cuc / P2_29); i += 16;
+                setbitu(buffer, i, 32, e / P2_33); i += 32;
+                setbits(buffer, i, 16, cus / P2_29); i += 16;
+                setbitu(buffer, i, 32, sqrtA / P2_19); i += 32;
+                setbitu(buffer, i, 16, toe); i += 16;
+                setbits(buffer, i, 16, cic / P2_29); i += 16;
+                setbits(buffer, i, 32, OMG0 / P2_31 / SC2RAD); i += 32;
+                setbits(buffer, i, 16, cis / P2_29); i += 16;
+                setbits(buffer, i, 32, i0 / P2_31 / SC2RAD); i += 32;
+                setbits(buffer, i, 16, crc / P2_5); i += 16;
+                setbits(buffer, i, 32, omg / P2_31 / SC2RAD); i += 32;
+                setbits(buffer, i, 24, OMGd / P2_43 / SC2RAD); i += 24;
+                setbits(buffer, i, 8, tgd / P2_31); i += 8;
+                setbitu(buffer, i, 6, svh); i += 6;
+                setbitu(buffer, i, 1, flag); i += 1;
+                setbitu(buffer, i, 1, fit ? 1 : 0); i += 1;
+
+                return i;
+            }
+        }
 
         int step = 0;
 
@@ -667,11 +819,63 @@ namespace piksi
                             if (BasePosMessage != null)
                                 BasePosMessage(tp, null);  
                         }
+                        if (head.messageno == 1019)
+                        {
+                            type1019 tp = new type1019();
+
+                            tp.Read(packet);
+
+                            if (EphMessage != null)
+                                EphMessage(tp, null);
+                        }
                     }
 
                     step = 0;
                     break;
             }
+        }
+
+        public byte[] gen_eph(type1019 eph)
+        {
+            byte[] buffer = new u8[300];
+
+            uint len = 0;
+            uint i = 0;
+            uint nbit = 0;
+            uint nbyte = 0;
+
+            rtcmpreamble pre = new rtcmpreamble();
+            pre.Write(buffer);
+
+            rtcmheader head = new rtcmheader();
+            head.messageno = 1019;
+            head.Write(buffer);
+
+            nbit = eph.Write(buffer);
+
+            /* padding to align 8 bit boundary */
+            for (i = nbit; (i % 8) > 0; i++)
+                setbitu(buffer, i, 1, 0);
+            /* message length (header+data) (bytes) */
+            if ((len = i / 8) >= 3 + 1024)
+            {
+                /*trace(2,"generate rtcm 3 message length error len=%d\n",rtcm->len-3);*/
+                nbit = len = 0;
+                return null;
+            }
+            /* message length without header and parity */
+            setbitu(buffer, 14, 10, len - 3);
+
+            /* crc-24q */
+            uint crc = crc24q(buffer, len, 0);
+            setbitu(buffer, i, 24, crc);
+
+            /* length total (bytes) */
+            nbyte = len + 3;
+
+            Array.Resize<byte>(ref buffer, (int)nbyte);
+
+            return buffer;
         }
 
         public byte[] gen_rtcm(type1002 obs)
