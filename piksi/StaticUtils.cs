@@ -32,14 +32,9 @@ static class StaticUtils
     }
 
     public static TPacket ByteArrayToStructure<TPacket>(this byte[] bytearray, int startoffset) where TPacket : struct
-    {
-        return ByteArrayToStructureGC<TPacket>(bytearray, startoffset);
+    {        
+        return ReadUsingPointer<TPacket>(bytearray, startoffset);
 
-        ReadUsingPointer<TPacket>(bytearray, startoffset);
-
-        object newPacket = new TPacket();
-        ByteArrayToStructure(bytearray, ref newPacket, startoffset);
-        return (TPacket)newPacket;
     }
 
     static T ReadUsingPointer<T>(byte[] data, int startoffset) where T : struct
