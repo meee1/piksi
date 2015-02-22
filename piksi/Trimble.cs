@@ -265,7 +265,7 @@ namespace piksi
                     type.svMeas[type.nMeasurementSets].snCountsL1 = obs[i].snr;
                     type.svMeas[type.nMeasurementSets].pseudorange = obs[i].P / piksi.MSG_OBS_P_MULTIPLIER;
                     type.svMeas[type.nMeasurementSets].phaseL1 = (obs[i].L.Li + (obs[i].L.Lf / 256.0));
-                    type.svMeas[type.nMeasurementSets].doppler =  (type.svMeas[type.nMeasurementSets].phaseL1 - cpold[obs[i].prn]);
+//                    type.svMeas[type.nMeasurementSets].doppler =  (type.svMeas[type.nMeasurementSets].phaseL1 - cpold[obs[i].prn]);
                     cpold[obs[i].prn] = type.svMeas[type.nMeasurementSets].phaseL1;
                     type.svMeas[type.nMeasurementSets].lidcpr = 0.0;
                     CdatType17.measT st1 = type.svMeas[type.nMeasurementSets];

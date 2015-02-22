@@ -33,19 +33,48 @@ static class StaticUtils
 
     public static TPacket ByteArrayToStructure<TPacket>(this byte[] bytearray, int startoffset) where TPacket : struct
     {
+        return ByteArrayToStructureGC<TPacket>(bytearray, startoffset);
+
+        ReadUsingPointer<TPacket>(bytearray, startoffset);
+
         object newPacket = new TPacket();
         ByteArrayToStructure(bytearray, ref newPacket, startoffset);
         return (TPacket)newPacket;
     }
 
-    public static void ByteArrayToStructure(byte[] bytearray, ref object obj, int startoffset)
+    static T ReadUsingPointer<T>(byte[] data, int startoffset) where T : struct
+    {
+        unsafe
+        {
+            fixed (byte* p = &data[startoffset])
+            {
+                return (T)Marshal.PtrToStructure(new IntPtr(p), typeof(T));
+            }
+        }
+    }
+
+
+    public static T ByteArrayToStructureGC<T>(byte[] bytearray, int startoffset) where T : struct
+    {
+        GCHandle gch = GCHandle.Alloc(bytearray, GCHandleType.Pinned);
+        try
+        {
+            return (T)Marshal.PtrToStructure(gch.AddrOfPinnedObject() + startoffset, typeof(T));
+        }
+        finally
+        {
+            gch.Free();
+        }
+    }
+
+    public static unsafe void ByteArrayToStructure(byte[] bytearray, ref object obj, int startoffset)
     {
         int len = Marshal.SizeOf(obj);
 
         IntPtr i = Marshal.AllocHGlobal(len);
 
         // create structure from ptr
-        obj = Marshal.PtrToStructure(i, obj.GetType());
+        //obj = Marshal.PtrToStructure(i, obj.GetType());
 
         try
         {

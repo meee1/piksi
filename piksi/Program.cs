@@ -20,6 +20,7 @@ namespace piksi
         static Comms.IStreamExtra deststream;
 
         static StreamWriter rinexoutput;
+        static StreamWriter rinexoutput2;
 
         static piksi piksi = new piksi();
 
@@ -33,6 +34,7 @@ self.link.send_message(sbp_piksi.SETTINGS, 'uart_ftdi\0baudrate\0%s\0' % ('10000
 import sbp_piksi
 self.link.send_message(sbp_piksi.SETTINGS, 'uart_uarta\0sbp_message_mask\0%s\0' % ('65535'.encode('ascii')))
 
+import sbp_piksi
 self.link.send_message(sbp_piksi.RESET, '')
          */
 
@@ -62,9 +64,12 @@ self.link.send_message(sbp_piksi.RESET, '')
             // rinex output
             if (outmode.ToLower() == "rinex")
             {
-                rinexoutput = new StreamWriter(args[2]);
+                using (rinexoutput = new StreamWriter(args[2]))
+                {
+                    using (rinexoutput2 = new StreamWriter(args[2].Replace(".obs","") + ".relay.obs"))
+                    {
 
-                rinexoutput.WriteLine(@"     3.02           OBSERVATION DATA    M: Mixed            RINEX VERSION / TYPE
+                        string header = @"     3.02           OBSERVATION DATA    M: Mixed            RINEX VERSION / TYPE
                                                             MARKER NAME         
                                                             MARKER NUMBER       
                                                             MARKER TYPE         
@@ -75,18 +80,24 @@ self.link.send_message(sbp_piksi.RESET, '')
         0.0000        0.0000        0.0000                  ANTENNA: DELTA H/E/N
 G    4 C1C L1C D1C S1C                                      SYS / # / OBS TYPES 
 G                                                           SYS / PHASE SHIFT   
-                                                            END OF HEADER       ");
+                                                            END OF HEADER       ";
 
-                piksi.ObsMessage += pkrinex_ObsMessage;
+                        rinexoutput.WriteLine(header);
+                        rinexoutput2.WriteLine(header);
 
-                BinaryReader br = new BinaryReader(File.OpenRead(args[1]));
+                        piksi.ObsMessage += pkrinex_ObsMessage;
 
-                while (br.BaseStream.Position < br.BaseStream.Length)
-                {
-                    piksi.read(br.ReadByte());
+                        using (BinaryReader br = new BinaryReader(new BufferedStream(File.OpenRead(args[1]), 1024 * 1024 * 4)))
+                        {
+                            long length = br.BaseStream.Length;
+
+                            while (br.BaseStream.Position < length)
+                            {
+                                piksi.read(br.ReadByte());
+                            }
+                        }
+                    }
                 }
-
-                rinexoutput.Close();
 
                 return;
             }
@@ -310,10 +321,6 @@ G                                                           SYS / PHASE SHIFT
 
             var hdr = msg.payload.ByteArrayToStructure<piksi.msg_obs_header_t>(0);
 
-            // relay packet
-            if (msg.sender == 0)
-                return;
-
             // total is number of packets
             int total = hdr.seq >> piksi.MSG_OBS_HEADER_SEQ_SHIFT;
             // this is packet count number
@@ -329,13 +336,25 @@ G                                                           SYS / PHASE SHIFT
 
             DateTime local = gpstime.ToLocalTime();
 
-            rinexoutput.WriteLine("> {0,4} {1,2} {2,2} {3,2} {4,2} {5,10} {6,1} {7,-2}", gpstime.Year, gpstime.Month, gpstime.Day, gpstime.Hour, gpstime.Minute, (gpstime.Second + (gpstime.Millisecond / 1000.0)).ToString("0.0000000",System.Globalization.CultureInfo.InvariantCulture), 0, obscount);
+            if (msg.sender == 0)
+            {
+                rinexoutput2.WriteLine("> {0,4} {1,2} {2,2} {3,2} {4,2} {5,10} {6,1} {7,-2}", gpstime.Year, gpstime.Month, gpstime.Day, gpstime.Hour, gpstime.Minute, (gpstime.Second + (gpstime.Millisecond / 1000.0)).ToString("0.0000000", System.Globalization.CultureInfo.InvariantCulture), 0, obscount);
+            } else {
+                rinexoutput.WriteLine("> {0,4} {1,2} {2,2} {3,2} {4,2} {5,10} {6,1} {7,-2}", gpstime.Year, gpstime.Month, gpstime.Day, gpstime.Hour, gpstime.Minute, (gpstime.Second + (gpstime.Millisecond / 1000.0)).ToString("0.0000000",System.Globalization.CultureInfo.InvariantCulture), 0, obscount);
+            }
 
             for (int a = 0; a < obscount; a++)
             {
                 var ob = msg.payload.ByteArrayToStructure<piksi.msg_obs_content_t>(lenhdr + a * lenobs);
 
-                rinexoutput.WriteLine("G{0,2} {1,13} {2,15} {3,31}", (ob.prn+1).ToString("00"), (ob.P / piksi.MSG_OBS_P_MULTIPLIER).ToString("0.000", System.Globalization.CultureInfo.InvariantCulture), ((ob.L.Li + (ob.L.Lf / 256.0))).ToString("0.0000", System.Globalization.CultureInfo.InvariantCulture), ob.snr.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture));
+                if (msg.sender == 0)
+                {
+                    rinexoutput2.WriteLine("G{0,2} {1,13} {2,15} {3,31}", (ob.prn + 1).ToString("00"), (ob.P / piksi.MSG_OBS_P_MULTIPLIER).ToString("0.000", System.Globalization.CultureInfo.InvariantCulture), ((ob.L.Li + (ob.L.Lf / 256.0))).ToString("0.0000", System.Globalization.CultureInfo.InvariantCulture), ob.snr.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture));
+                }
+                else
+                {
+                    rinexoutput.WriteLine("G{0,2} {1,13} {2,15} {3,31}", (ob.prn + 1).ToString("00"), (ob.P / piksi.MSG_OBS_P_MULTIPLIER).ToString("0.000", System.Globalization.CultureInfo.InvariantCulture), ((ob.L.Li + (ob.L.Lf / 256.0))).ToString("0.0000", System.Globalization.CultureInfo.InvariantCulture), ob.snr.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture));
+                }
             }
         }
 
