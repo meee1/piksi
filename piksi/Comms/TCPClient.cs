@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -13,6 +14,8 @@ namespace piksi.Comms
 
         public TCPClient(string p1, int p2)
         {
+            base.NoDelay = true;
+
             int index = p1.IndexOf(':');
 
             if (index > 0)
@@ -42,6 +45,7 @@ namespace piksi.Comms
 
         public void Open()
         {
+            ServicePointManager.SetTcpKeepAlive(true, 4000, 4000);
             base.Connect(p1, p2);
         }
 

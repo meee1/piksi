@@ -30,6 +30,8 @@ namespace piksi
 
         prsmooth prsmoothdata = new prsmooth();
 
+        ephemeris_t[] eph = new ephemeris_t[33];
+
 
         int printline = 60;
 
@@ -178,7 +180,14 @@ const double GPS_C =299792458.0;
              public u8 valid;
              public u8 healthy;
              public u8 prn;
-}
+
+             public double clock_err(double tow)
+             {
+                 double dt = tow - toc.tow;
+                 return af0 + dt*(af1 + dt*af2)
+                        - tgd;
+             }
+         }
 
          double nav_tc = 0;
 
@@ -797,6 +806,8 @@ const double GPS_C =299792458.0;
                             nav_meas.tot.tow += meas.code_phase_chips / GPS_CA_CHIPPING_RATE;
                             nav_meas.tot.tow += (nav_time - meas.receiver_time) * (meas.code_phase_rate / GPS_CA_CHIPPING_RATE);
 
+                            var clock_err = eph[meas.prn + 1].clock_err(nav_meas.tot.tow);
+
                             nav_meas.carrier_phase = meas.carrier_phase;
                             nav_meas.carrier_phase += (nav_time - meas.receiver_time) * meas.carrier_freq;
 
@@ -823,7 +834,7 @@ const double GPS_C =299792458.0;
                             file.Close();
 
                             //Console.WriteLine("{0,2} {1} {2}", satno, nav_meas.raw_doppler, meas.carrier_phase);
-                            Console.WriteLine("{0,2} {1,17} {2,17} {3,17} {4,17} {5,17}", meas.prn + 1, nav_meas.tot.tow, meas.code_phase_chips, meas.code_phase_rate / 1000.0, nav_meas.carrier_phase, nav_meas.raw_pseudorange);
+                            Console.WriteLine("{0,2} {1,17} {2,17} {3,17} {4,17} {5,17}", meas.prn + 1, nav_meas.tot.tow.ToString("0.000"), clock_err, meas.code_phase_chips, meas.code_phase_rate / 1000.0, nav_meas.carrier_phase, nav_meas.raw_pseudorange);
 
                             meas_last[nav_meas.prn] = nav_meas;
                         }
@@ -865,6 +876,8 @@ const double GPS_C =299792458.0;
                             int lenitem = Marshal.SizeOf(new ephemeris_t());
 
                             var test = msg.payload.ByteArrayToStructure<ephemeris_t>(0);
+
+                            eph[test.prn+1] = test;
 
                             File.WriteAllBytes((test.prn + 1) + ".eph", msg.payload);
 
