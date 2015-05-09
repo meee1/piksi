@@ -232,9 +232,9 @@ G                                                           SYS / PHASE SHIFT
                     }
 
 
-                   // while (deststream.dataToRead)
+                    // while (deststream.dataToRead)
                     {
-                       // piksi.read((byte)deststream.ReadByte());
+                        // piksi.read((byte)deststream.ReadByte());
                     }
 
                     System.Threading.Thread.Sleep(5);
@@ -515,8 +515,6 @@ G                                                           SYS / PHASE SHIFT
             head.t.wn = (ushort)(msg[0].week);
             head.t.tow = (uint)((msg[0].tow * piksi.MSG_OBS_TOW_MULTIPLIER));
 
-            // rounding - should not need this, but testing against a ublox requires some "lieing"
-            //head.t.tow = (uint)(Math.Round((decimal)(head.t.tow / 1000.0))*(decimal)1000.0);
 
             double soln_freq = 10;
             double obs_output_divisor = 2;
@@ -526,6 +524,10 @@ G                                                           SYS / PHASE SHIFT
             double checkleft = Math.Abs(epoch_count - Math.Round(epoch_count));
 
             Console.WriteLine(head.t.tow + " " + checkleft.ToString("0.000") + " " + epoch_count.ToString("0.000") + " " + Math.Round(epoch_count) + " > " + 1e-3);
+
+
+            // rounding - should not need this, but testing against a ublox requires some "lieing"
+            head.t.tow = (uint)(Math.Round((decimal)(head.t.tow / 1000.0)) * (decimal)1000.0);
 
             List<piksi.msg_obs_content_t> obs = new List<piksi.msg_obs_content_t>();
 
@@ -538,7 +540,7 @@ G                                                           SYS / PHASE SHIFT
                 ob.P = (uint)(item.pr * piksi.MSG_OBS_P_MULTIPLIER);
                 ob.L.Li = (int)item.cp;
                 ob.L.Lf = (byte)((item.cp - ob.L.Li) * 256.0);
-                ob.snr = (byte)(item.snr);// / piksi.MSG_OBS_SNR_MULTIPLIER);
+                ob.snr = (byte)(item.snr * piksi.MSG_OBS_SNR_MULTIPLIER);
 
                 obs.Add(ob);
             }

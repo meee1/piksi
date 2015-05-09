@@ -162,6 +162,53 @@ const double GPS_C =299792458.0;
             public u16 lock_counter;
         }
 
+        // from pvt.h
+        [StructLayout(LayoutKind.Sequential, Pack = 1)]
+        public struct gnss_solution
+        {
+            /*
+   * Be careful of stuct packing to avoid (very mild) slowness,
+   * try to keep all the types aligned i.e. put the 64bit
+   * things together at the top, then the 32bit ones etc.
+   */
+            /** Receiver position latitude [deg], longitude [deg], altitude [m] */
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 3)]
+            public double[] pos_llh;
+            /** Receiver position ECEF XYZ [m] */
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 3)] 
+            public double[] pos_ecef;
+            /** Receiver velocity in NED [m/s] */
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 3)] 
+            public double[] vel_ned;
+            /** Receiver velocity in ECEF XYZ [m/s] */
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 3)] 
+            public double[] vel_ecef;
+
+            /* This is the row-first upper diagonal matrix of error covariances
+   * in x, y, z (all receiver clock covariance terms are ignored).  So
+   * it goes like so:
+   *
+   *    0  1  2
+   *    _  3  4
+   *    _  _  5
+   *
+   *    Index 6 is the GDOP.
+   */
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 7)]
+            public double[] err_cov;
+
+            public double clock_offset;
+            public double clock_bias;
+
+            /* GPS time */
+            public gps_time_t time;
+
+            /* 0 = invalid, 1 = code phase */
+            public u8 valid;
+            /* Number of channels used in the soluton. */
+            public u8 n_used;
+        }
+
         navigation_measurement_t[] meas_last = new navigation_measurement_t[33];
 
          [StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -674,10 +721,10 @@ const double GPS_C =299792458.0;
 
                                 Console.SetCursorPosition(0, 15 + a + linebase);
 
-                                Console.WriteLine("{0,6} {1,10} {2,2} {3,5} {4,11} {5,17} {6,17}           ",msg.sender , hdr.t.tow , (ob.prn+1) , (ob.snr) , (ob.P / MSG_OBS_P_MULTIPLIER).ToString("0.00") , (ob.L.Li + (ob.L.Lf / 256.0)).ToString("0.000000"),ob.lock_counter);
+                                Console.WriteLine("{0,6} {1,10} {2,2} {3,5} {4,11} {5,17} {6,17}           ", msg.sender, hdr.t.tow, (ob.prn + 1), (ob.snr / MSG_OBS_SNR_MULTIPLIER).ToString("0"), (ob.P / MSG_OBS_P_MULTIPLIER).ToString("0.00"), (ob.L.Li + (ob.L.Lf / 256.0)).ToString("0.000000"), ob.lock_counter);
                             }
 
-                            if (count == (total - 1))
+                            if (count == (total - 1) && msgobs.payload != null)
                             {
                                 if (ObsMessage != null)
                                     ObsMessage(msgobs, null);
