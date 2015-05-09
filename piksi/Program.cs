@@ -398,11 +398,11 @@ G                                                           SYS / PHASE SHIFT
 
                 if (msg.sender == 0)
                 {
-                    rinexoutput2.WriteLine("G{0,2} {1,13} {2,15} {3,31}", (ob.prn + 1).ToString("00"), (ob.P / piksi.MSG_OBS_P_MULTIPLIER).ToString("0.000", System.Globalization.CultureInfo.InvariantCulture), ((ob.L.Li + (ob.L.Lf / 256.0))).ToString("0.0000", System.Globalization.CultureInfo.InvariantCulture), ob.snr.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture));
+                    rinexoutput2.WriteLine("G{0,2} {1,13} {2,15} {3,31}", (ob.prn + 1).ToString("00"), (ob.P / piksi.MSG_OBS_P_MULTIPLIER).ToString("0.000", System.Globalization.CultureInfo.InvariantCulture), ((ob.L.Li + (ob.L.Lf / 256.0))).ToString("0.0000", System.Globalization.CultureInfo.InvariantCulture), (ob.snr / piksi.MSG_OBS_SNR_MULTIPLIER).ToString("0.000", System.Globalization.CultureInfo.InvariantCulture));
                 }
                 else
                 {
-                    rinexoutput.WriteLine("G{0,2} {1,13} {2,15} {3,31}", (ob.prn + 1).ToString("00"), (ob.P / piksi.MSG_OBS_P_MULTIPLIER).ToString("0.000", System.Globalization.CultureInfo.InvariantCulture), ((ob.L.Li + (ob.L.Lf / 256.0))).ToString("0.0000", System.Globalization.CultureInfo.InvariantCulture), ob.snr.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture));
+                    rinexoutput.WriteLine("G{0,2} {1,13} {2,15} {3,31}", (ob.prn + 1).ToString("00"), (ob.P / piksi.MSG_OBS_P_MULTIPLIER).ToString("0.000", System.Globalization.CultureInfo.InvariantCulture), ((ob.L.Li + (ob.L.Lf / 256.0))).ToString("0.0000", System.Globalization.CultureInfo.InvariantCulture), (ob.snr / piksi.MSG_OBS_SNR_MULTIPLIER).ToString("0.000", System.Globalization.CultureInfo.InvariantCulture));
                 }
             }
         }
