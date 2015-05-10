@@ -87,12 +87,24 @@ G                                                           SYS / PHASE SHIFT
 
                         piksi.ObsMessage += pkrinex_ObsMessage;
 
+                        piksi.consoleoutput = false;
+
+                        DateTime reporttime = DateTime.MinValue;
+
                         using (BinaryReader br = new BinaryReader(new BufferedStream(File.OpenRead(args[1]), 1024 * 1024 * 4)))
                         {
                             long length = br.BaseStream.Length;
 
                             while (br.BaseStream.Position < length)
                             {
+                                double percent = (br.BaseStream.Position/(double)length) * 100.0;
+
+                                if (reporttime.Second != DateTime.Now.Second)
+                                {
+                                    Console.WriteLine(percent);
+                                    reporttime = DateTime.Now;
+                                }
+
                                 piksi.read(br.ReadByte());
                             }
                         }

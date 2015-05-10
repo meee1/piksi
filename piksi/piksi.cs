@@ -32,6 +32,7 @@ namespace piksi
 
         ephemeris_t[] eph = new ephemeris_t[33];
 
+        public bool consoleoutput = true;
 
         int printline = 60;
 
@@ -637,8 +638,11 @@ const double GPS_C =299792458.0;
                         {
                             var test = msg.payload.ByteArrayToStructure<sbp_gps_time_t>(0);
 
-                            Console.SetCursorPosition(0, 0);
-                            Console.WriteLine(test.wn + " " + test.tow);
+                            if (consoleoutput)
+                            {
+                                Console.SetCursorPosition(0, 0);
+                                Console.WriteLine(test.wn + " " + test.tow);
+                            }
                         }
                         else if ((MSG)msg.msgtype == MSG.SBP_POS_LLH)
                         {
@@ -679,8 +683,11 @@ const double GPS_C =299792458.0;
                         else if ((MSG)msg.msgtype == MSG.SBP_BASELINE_ECEF)
                         {
                             var test = msg.payload.ByteArrayToStructure<sbp_baseline_ecef_t>(0);
-                            Console.SetCursorPosition(0, 1);
-                             Console.WriteLine("bl "+test.x + " " + test.y + " " + test.z);
+                            if (consoleoutput)
+                            {
+                                Console.SetCursorPosition(0, 1);
+                                Console.WriteLine("bl " + test.x + " " + test.y + " " + test.z);
+                            }
                         }
                         else if ((MSG)msg.msgtype == MSG.MSG_PACKED_OBS)
                         {
@@ -719,9 +726,16 @@ const double GPS_C =299792458.0;
                             {
                                 var ob = msg.payload.ByteArrayToStructure<msg_obs_content_t>(lenhdr + a * lenobs);
 
-                                Console.SetCursorPosition(0, 15 + a + linebase);
+                                if (consoleoutput)
+                                {
+                                    Console.SetCursorPosition(0, 15 + a + linebase);
 
-                                Console.WriteLine("{0,6} {1,10} {2,2} {3,5} {4,11} {5,17} {6,17}           ", msg.sender, hdr.t.tow, (ob.prn + 1), (ob.snr / MSG_OBS_SNR_MULTIPLIER).ToString("0"), (ob.P / MSG_OBS_P_MULTIPLIER).ToString("0.00"), (ob.L.Li + (ob.L.Lf / 256.0)).ToString("0.000000"), ob.lock_counter);
+                                    Console.WriteLine("{0,6} {1,10} {2,2} {3,5} {4,11} {5,17} {6,17}           ",
+                                        msg.sender, hdr.t.tow, (ob.prn + 1),
+                                        (ob.snr/MSG_OBS_SNR_MULTIPLIER).ToString("0"),
+                                        (ob.P/MSG_OBS_P_MULTIPLIER).ToString("0.00"),
+                                        (ob.L.Li + (ob.L.Lf/256.0)).ToString("0.000000"), ob.lock_counter);
+                                }
                             }
 
                             if (count == (total - 1) && msgobs.payload != null)
@@ -734,8 +748,11 @@ const double GPS_C =299792458.0;
                         {
                             var bpos = msg.payload.ByteArrayToStructure<msg_base_pos_t>(0);
 
-                            Console.SetCursorPosition(0, 2);
-                            Console.WriteLine("base pos {0} {1} {2}",bpos.pos_lat,bpos.pos_lon,bpos.pos_alt);
+                            if (consoleoutput)
+                            {
+                                Console.SetCursorPosition(0, 2);
+                                Console.WriteLine("base pos {0} {1} {2}", bpos.pos_lat, bpos.pos_lon, bpos.pos_alt);
+                            }
 
                             if (BasePosMessage != null)
                                 BasePosMessage(msg, null);                            
@@ -744,13 +761,19 @@ const double GPS_C =299792458.0;
                         {
                             var test = msg.payload.ByteArrayToStructure<msg_iar_state_t>(0);
 
-                            Console.SetCursorPosition(0, 3);
-                            Console.WriteLine("IAR "+test.num_hyps);
+                            if (consoleoutput)
+                            {
+                                Console.SetCursorPosition(0, 3);
+                                Console.WriteLine("IAR " + test.num_hyps);
+                            }
                         }
                         else if ((MSG)msg.msgtype == MSG.MSG_PRINT)
                         {
-                            Console.SetCursorPosition(0, printline);
-                            Console.Write(printline + " " +ASCIIEncoding.ASCII.GetString(msg.payload));
+                            if (consoleoutput)
+                            {
+                                Console.SetCursorPosition(0, printline);
+                                Console.Write(printline + " " + ASCIIEncoding.ASCII.GetString(msg.payload));
+                            }
 
                             printline++;
 
@@ -765,9 +788,11 @@ const double GPS_C =299792458.0;
                             {
                                 var test = msg.payload.ByteArrayToStructure<tracking_state_msg_t>(a);
 
-                                Console.SetCursorPosition(65, a / len);
-
-                                Console.WriteLine("{0,2} {1,1} {2,10}",test.prn+1 , test.state, test.cn0);
+                                if (consoleoutput)
+                                {
+                                    Console.SetCursorPosition(65, a/len);
+                                    Console.WriteLine("{0,2} {1,1} {2,10}", test.prn + 1, test.state, test.cn0);
+                                }
                             }
 
                         }
@@ -775,8 +800,13 @@ const double GPS_C =299792458.0;
                         {
                             var test = msg.payload.ByteArrayToStructure<msg_uart_state_t>(0);
 
-                            Console.SetCursorPosition(0, 13);
-                            Console.WriteLine("uart3 " + test.uart3.tx_throughput + " uart2 " + test.uart2.tx_throughput + " obs lat " + test.obs_latency.current + "     ");
+                            if (consoleoutput)
+                            {
+                                Console.SetCursorPosition(0, 13);
+                                Console.WriteLine("uart3 " + test.uart3.tx_throughput + " uart2 " +
+                                                  test.uart2.tx_throughput + " obs lat " + test.obs_latency.current +
+                                                  "     ");
+                            }
                         }
                         else if ((MSG)msg.msgtype == MSG.MSG_THREAD_STATE)
                         {
@@ -785,15 +815,22 @@ const double GPS_C =299792458.0;
                         }
                         else if ((MSG)msg.msgtype == MSG.SBP_HEARTBEAT)
                         {
-                            Console.WriteLine("HB");
+                            if (consoleoutput)
+                            {
+                                Console.WriteLine("HB");
+                            }
                             //Console.Clear();
                             //Console.SetCursorPosition(0, 0);
                         }
                         else if ((MSG)msg.msgtype == MSG.MSG_ACQ_RESULT)
                         {
                             var test = msg.payload.ByteArrayToStructure<acq_result_msg_t>(0);
-                            Console.SetCursorPosition(0, 7);
-                            Console.WriteLine("aqn\t" + (test.prn+1) + "\t" + test.snr.ToString("0.00") + "\t" + test.cp + "\t" + test.cf + "\t\t");
+                            if (consoleoutput)
+                            {
+                                Console.SetCursorPosition(0, 7);
+                                Console.WriteLine("aqn\t" + (test.prn + 1) + "\t" + test.snr.ToString("0.00") + "\t" +
+                                                  test.cp + "\t" + test.cf + "\t\t");
+                            }
                         }
                         else if ((MSG)msg.msgtype == MSG.MSG_SETTINGS_READ_BY_INDEX)
                         {
@@ -801,8 +838,11 @@ const double GPS_C =299792458.0;
 
                             string[] items = test.Split('\0');
 
-                            Console.SetCursorPosition(0, 4);
-                            Console.WriteLine("setting "+test);
+                            if (consoleoutput)
+                            {
+                                Console.SetCursorPosition(0, 4);
+                                Console.WriteLine("setting " + test);
+                            }
 
                             //var test = msg.payload.ByteArrayToStructure<>(0);
                             }
@@ -820,10 +860,11 @@ const double GPS_C =299792458.0;
                            // Console.Clear();
                             var value = BitConverter.ToDouble(msg.payload, 0);
                             string debug = ASCIIEncoding.ASCII.GetString(msg.payload,8,msg.payload.Length - 8);
-                            Console.SetCursorPosition(0, 59);
-                            Console.WriteLine(debug + " " + (value) + "    ");
-
-
+                            if (consoleoutput)
+                            {
+                                Console.SetCursorPosition(0, 59);
+                                Console.WriteLine(debug + " " + (value) + "    ");
+                            }
 
                             nav_tc = (value);
                         }
@@ -832,7 +873,10 @@ const double GPS_C =299792458.0;
                             int lenitem = Marshal.SizeOf(new channel_measurement_t());
 
                             var meas = msg.payload.ByteArrayToStructure<channel_measurement_t>(0);
-                            Console.SetCursorPosition(0, 26 + meas.prn);
+                            if (consoleoutput)
+                            {
+                                Console.SetCursorPosition(0, 26 + meas.prn);
+                            }
 
                             var nav_meas = new navigation_measurement_t();
 
@@ -880,8 +924,13 @@ const double GPS_C =299792458.0;
 
                             file.Close();
 
-                            //Console.WriteLine("{0,2} {1} {2}", satno, nav_meas.raw_doppler, meas.carrier_phase);
-                            Console.WriteLine("{0,2} {1,17} {2,17} {3,17} {4,17} {5,17}", meas.prn + 1, nav_meas.tot.tow.ToString("0.000"), clock_err, meas.code_phase_chips, meas.code_phase_rate / 1000.0, nav_meas.carrier_phase, nav_meas.raw_pseudorange);
+                            if (consoleoutput)
+                            {
+                                //Console.WriteLine("{0,2} {1} {2}", satno, nav_meas.raw_doppler, meas.carrier_phase);
+                                Console.WriteLine("{0,2} {1,17} {2,17} {3,17} {4,17} {5,17}", meas.prn + 1,
+                                    nav_meas.tot.tow.ToString("0.000"), clock_err, meas.code_phase_chips,
+                                    meas.code_phase_rate/1000.0, nav_meas.carrier_phase, nav_meas.raw_pseudorange);
+                            }
 
                             meas_last[nav_meas.prn] = nav_meas;
                         }
@@ -906,8 +955,17 @@ const double GPS_C =299792458.0;
 
                             double smoothed = prsmoothdata.Add(satno, test.raw_pseudorange, test.carrier_phase * -lam1);
 
-                            Console.SetCursorPosition(0, 26 + test.prn);
-                            Console.WriteLine("{0,2} rpr {1,16} tot {2,16} lock {3,2} dop {4,10} cpd {5,10} prd {6} satd {7}   ", test.prn + 1, test.raw_pseudorange, test.tot.tow, test.lock_time, (test.doppler * lam1).ToString("0.000"), (cptest.linearRegression(satno) * -lam1).ToString("0.000"), prtest.linearRegression(satno).ToString("0.000"), satdisttest.linearRegression(satno).ToString("0.000"));
+                            if (consoleoutput)
+                            {
+                                Console.SetCursorPosition(0, 26 + test.prn);
+                                Console.WriteLine(
+                                    "{0,2} rpr {1,16} tot {2,16} lock {3,2} dop {4,10} cpd {5,10} prd {6} satd {7}   ",
+                                    test.prn + 1, test.raw_pseudorange, test.tot.tow, test.lock_time,
+                                    (test.doppler*lam1).ToString("0.000"),
+                                    (cptest.linearRegression(satno)*-lam1).ToString("0.000"),
+                                    prtest.linearRegression(satno).ToString("0.000"),
+                                    satdisttest.linearRegression(satno).ToString("0.000"));
+                            }
 
                             var file = File.Open(satno + "-obs.csv", FileMode.Append);
 
@@ -940,7 +998,7 @@ const double GPS_C =299792458.0;
                     else
                     {
                         Console.SetCursorPosition(0, 6);
-                        Console.WriteLine("sbp crc fail");
+                        Console.WriteLine(DateTime.Now + " sbp crc fail");
                     }
                     break;
             }
