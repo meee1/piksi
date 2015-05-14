@@ -9,7 +9,6 @@ using u16 = System.UInt16;
 using s32 = System.Int32;
 using u32 = System.UInt32;
 using s64 = System.Int64;
-//using gps_time_t = System.UInt64;
 using System.Runtime.InteropServices;
 using System.IO;
 
@@ -105,7 +104,7 @@ const double GPS_C =299792458.0;
 
             MSG_UART_STATE = 0x18, /**< Piksi  -> Host  */
 
-            MSG_EPHEMERIS = 0x1A,  /**< Piksi  -> Host  */
+            MSG_EPHEMERIS = 0x46,  /**< Piksi  -> Host  */
 
             MSG_ACQ_RESULT = 0x15, /**< Piksi  -> Host  */
 
@@ -219,25 +218,165 @@ const double GPS_C =299792458.0;
             public u16 wn;     /**< GPS week number. */
 }
 
-         public struct ephemeris_t {
-             public double tgd;
-             public double crs, crc, cuc, cus, cic, cis;
-             public double dn, m0, ecc, sqrta, omega0, omegadot, w, inc, inc_dot;
-             public double af0, af1, af2;
-             public gps_time_t toe, toc;
-             public u8 valid;
-             public u8 healthy;
-             public u8 prn;
+         [StructLayout(LayoutKind.Sequential, Pack = 1)]
+        public struct ephemeris_t
+        {
+            public double tgd;
+            public double crs, crc, cuc, cus, cic, cis;
+            public double dn, m0, ecc, sqrta, omega0, omegadot, w, inc, inc_dot;
+            public double af0, af1, af2;
+            public gps_time_t toe, toc;
+            public u8 valid;
+            public u8 healthy;
+            public u8 prn;
 
-             public double clock_err(double tow)
-             {
-                 double dt = tow - toc.tow;
-                 return af0 + dt*(af1 + dt*af2)
-                        - tgd;
-             }
-         }
+            /** Time difference in seconds between two GPS times.
+ * \param end Higher bound of the time interval whose length is calculated.
+ * \param beginning Lower bound of the time interval whose length is
+ *                  calculated. If this describes a time point later than end,
+ *                  the result is negative.
+ * \return The time difference in seconds between `beginning` and `end`.
+ */
 
-         double nav_tc = 0;
+            private double gpsdifftime(gps_time_t end, gps_time_t beginning)
+            {
+                return (end.wn - beginning.wn)*7*24*3600 +
+                       end.tow - beginning.tow;
+            }
+
+            public int calc_sat_pos(double[] pos, double[] vel,
+                ref double clock_err, ref double clock_rate_err,
+                gps_time_t tot)
+            {
+                /****************************************************************************
+   * Calculate satellite position, velocity and clock offset from ephemeris
+   * Taken from IS-GPS-200D, Section 20.3.3.3.3.1 and Table 20-IV
+   *
+   * Usage: unsigned int ProcessEphemeris(unsigned int week, double secs,
+   *                              unsigned int sv, nav_info_t *Eph)
+   *  week: GPS week number
+   *  sec: GPS seconds of the week of time of transmission
+   *  sv: Satellite vehicle number
+   *    Eph: Ephemeris data structure located within channel structure
+   ****************************************************************************/
+
+                double tempd1 = 0, tempd2, tempd3;
+                double tdiff;
+                double a; // semi major axis
+                double ma, ma_dot; // mean anomoly and first derivative (mean motion)
+                double ea, ea_dot, ea_old; // eccentric anomoly, first deriv, iteration var
+                double einstein; // relativistic correction
+                double al, al_dot; // argument of lattitude and first derivative
+                double cal, cal_dot; // corrected argument of lattitude and first deriv
+                double r, r_dot; // radius and first derivative
+                double inc, inc_dot; // inclination and first derivative
+                double x, x_dot, y, y_dot; // position in orbital plan and first derivatives
+                double om, om_dot; // omega and first derivatives
+
+                const double NAV_OMEGAE_DOT = 7.2921151467e-005;
+                const double NAV_GM = 3.986005e14;
+
+                // Satellite clock terms
+                // Seconds from clock data reference time (toc)
+                tdiff = gpsdifftime(tot, this.toc);
+
+                clock_err = this.af0 + tdiff*(this.af1 + tdiff*this.af2) - this.tgd;
+                clock_rate_err = this.af1 + 2.0*tdiff*this.af2;
+
+                // Seconds from the time from ephemeris reference epoch (toe)
+                tdiff = gpsdifftime(tot, this.toe);
+
+                // If tdiff is too large our ephemeris isn't valid, maybe we want to wait until we get a
+                // new one? At least let's warn the user.
+                // TODO: this doesn't exclude ephemerides older than a week so could be made better.
+                //if (Math.Abs(tdiff) > 4*3600)
+                //    Console.Write(" WARNING: uSing ephemeris older (or newer!) than 4 hours.\n");
+
+                // Calculate position per IS-GPS-200D p 97 Table 20-IV
+                a = this.sqrta*this.sqrta; // [m] Semi-major axis
+                ma_dot = Math.Sqrt(NAV_GM / (a * a * a)) + this.dn; // [rad/sec] Corrected mean motion
+                ma = this.m0 + ma_dot*tdiff; // [rad] Corrected mean anomaly
+
+                // Iteratively solve for the Eccentric Anomaly (from Keith Alter and David Johnston)
+                ea = ma; // Starting value for E
+                double ecc = this.ecc;
+                u32 count = 0;
+
+                /* TODO: Implement convergence test uSing integer difference of doubles,
+   * http://www.cygnus-software.com/papers/comparingfloats/comparingfloats.htm */
+                do
+                {
+                    ea_old = ea;
+                    tempd1 = 1.0 - ecc * Math.Cos(ea_old);
+                    ea = ea + (ma - ea_old + ecc * Math.Sin(ea_old)) / tempd1;
+                    count++;
+                    if (count > 5)
+                        break;
+                } while (Math.Abs(ea - ea_old) > 1.0E-14);
+                ea_dot = ma_dot/tempd1;
+
+                // Relativistic correction term
+                einstein = -4.442807633E-10 * ecc * this.sqrta * Math.Sin(ea);
+
+                // Begin calc for True Anomaly and Argument of Latitude
+                tempd2 = Math.Sqrt(1.0 - ecc * ecc);
+                al = Math.Atan2(tempd2 * Math.Sin(ea), Math.Cos(ea) - ecc) + this.w;
+                    // [rad] Argument of Latitude = True Anomaly + Argument of Perigee
+                al_dot = tempd2*ea_dot/tempd1;
+
+                // Calculate corrected argument of latitude based on position
+                cal = al + this.cus * Math.Sin(2.0 * al) + this.cuc * Math.Cos(2.0 * al);
+                cal_dot =
+                    al_dot*(1.0 +
+                            2.0 * (this.cus * Math.Cos(2.0 * al) -
+                                 this.cuc * Math.Sin(2.0 * al)));
+
+                // Calculate corrected radius based on argument of latitude
+                r =
+                    a * tempd1 + this.crc * Math.Cos(2.0 * al) +
+                    this.crs * Math.Sin(2.0 * al);
+                r_dot =
+                    a * ecc * Math.Sin(ea) * ea_dot +
+                    2.0 * al_dot * (this.crs * Math.Cos(2.0 * al) -
+                                this.crc * Math.Sin(2.0 * al));
+
+                // Calculate inclination based on argument of latitude
+                inc =
+                    this.inc + this.inc_dot*tdiff +
+                    this.cic * Math.Cos(2.0 * al) + this.cis * Math.Sin(2.0 * al);
+                inc_dot =
+                    this.inc_dot + 2.0 * al_dot * (this.cis * Math.Cos(2.0 * al) -
+                                               this.cic * Math.Sin(2.0 * al));
+
+                // Calculate position and velocity in orbital plane
+                x = r * Math.Cos(cal);
+                y = r * Math.Sin(cal);
+                x_dot = r_dot * Math.Cos(cal) - y * cal_dot;
+                y_dot = r_dot * Math.Sin(cal) + x * cal_dot;
+
+                // Corrected longitude of ascenting node
+                om_dot = this.omegadot - NAV_OMEGAE_DOT;
+                om = this.omega0 + tdiff*om_dot - NAV_OMEGAE_DOT*this.toe.tow;
+
+                // Compute the satellite's position in Earth-Centered Earth-Fixed coordiates
+                pos[0] = x * Math.Cos(om) - y * Math.Cos(inc) * Math.Sin(om);
+                pos[1] = x * Math.Sin(om) + y * Math.Cos(inc) * Math.Cos(om);
+                pos[2] = y * Math.Sin(inc);
+
+                tempd3 = y_dot * Math.Cos(inc) - y * Math.Sin(inc) * inc_dot;
+
+                // Compute the satellite's velocity in Earth-Centered Earth-Fixed coordiates
+                vel[0] = -om_dot * pos[1] + x_dot * Math.Cos(om) - tempd3 * Math.Sin(om);
+                vel[1] = om_dot * pos[0] + x_dot * Math.Sin(om) + tempd3 * Math.Cos(om);
+                vel[2] = y * Math.Cos(inc) * inc_dot + y_dot * Math.Sin(inc);
+
+                clock_err += einstein;
+
+                return 0;
+            }
+        }
+
+        double nav_tc = 0;
 
         //----------------------------------------------------------
 
@@ -722,6 +861,8 @@ const double GPS_C =299792458.0;
                                 msgobs.length += (byte)(obscount * lenobs);
                             }
 
+                            calcPos(hdr, obscount);
+
                             for (int a = 0; a < obscount; a++)
                             {
                                 var ob = msg.payload.ByteArrayToStructure<msg_obs_content_t>(lenhdr + a * lenobs);
@@ -897,7 +1038,7 @@ const double GPS_C =299792458.0;
                             nav_meas.tot.tow += meas.code_phase_chips / GPS_CA_CHIPPING_RATE;
                             nav_meas.tot.tow += (nav_time - meas.receiver_time) * (meas.code_phase_rate / GPS_CA_CHIPPING_RATE);
 
-                            var clock_err = eph[meas.prn + 1].clock_err(nav_meas.tot.tow);
+                            //var clock_err = eph[meas.prn + 1].clock_err(nav_meas.tot.tow);
 
                             nav_meas.carrier_phase = meas.carrier_phase;
                             nav_meas.carrier_phase += (nav_time - meas.receiver_time) * meas.carrier_freq;
@@ -928,7 +1069,7 @@ const double GPS_C =299792458.0;
                             {
                                 //Console.WriteLine("{0,2} {1} {2}", satno, nav_meas.raw_doppler, meas.carrier_phase);
                                 Console.WriteLine("{0,2} {1,17} {2,17} {3,17} {4,17} {5,17}", meas.prn + 1,
-                                    nav_meas.tot.tow.ToString("0.000"), clock_err, meas.code_phase_chips,
+                                    nav_meas.tot.tow.ToString("0.000"), meas.code_phase_chips,
                                     meas.code_phase_rate/1000.0, nav_meas.carrier_phase, nav_meas.raw_pseudorange);
                             }
 
@@ -1001,6 +1142,98 @@ const double GPS_C =299792458.0;
                         Console.WriteLine(DateTime.Now + " sbp crc fail");
                     }
                     break;
+            }
+        }
+
+        public struct obinfo
+        {
+            public msg_obs_content_t rawob;
+            public double[] sat_pos;
+            public double[] sat_vel;
+            public double clock_err;
+            public double clock_rate_err;
+        }
+
+        double[] lastpos = new double[4];
+
+        private void calcPos(msg_obs_header_t hdr, int obscount)
+        {
+            const double CLIGHT = 299792458.0;   /* speed of light (m/s) */
+
+            int lenhdr = Marshal.SizeOf(hdr);
+
+            int lenobs = Marshal.SizeOf(new msg_obs_content_t());
+
+            List<obinfo> obs = new List<obinfo>();
+
+            for (int a = 0; a < obscount; a++)
+            {
+                var ob = msg.payload.ByteArrayToStructure<msg_obs_content_t>(lenhdr + a*lenobs);
+
+                gps_time_t tt = new gps_time_t() { tow = hdr.t.tow / 1000.0, wn = hdr.t.wn };
+
+                double[] pos = new double[3];
+                double[] vel = new double[3];
+                double clock_err = 0, clock_rate_err = 0;
+
+                eph[ob.prn + 1].calc_sat_pos(pos, vel, ref clock_err, ref clock_rate_err, tt);
+
+                if (double.IsNaN(clock_err))
+                    continue;
+
+                obs.Add(new obinfo(){ clock_err = clock_err,clock_rate_err = clock_rate_err,rawob = ob,sat_pos = pos, sat_vel = vel });
+            }
+
+            if (obs.Count == 0)
+                return;
+
+            double[] x = lastpos;
+
+            double epsg = 1e-4;
+            double epsf = 0;
+            double epsx = 0;
+            int maxits = 0;
+            alglib.minlmstate state;
+            alglib.minlmreport rep;
+
+            alglib.minlmcreatev(obs.Count, x, 1, out state);
+            alglib.minlmsetcond(state, epsg, epsf, epsx, maxits);
+            alglib.minlmoptimize(state, sphere_errorpos, null, obs);
+            alglib.minlmresults(state, out x, out rep);
+
+            //log.InfoFormat("{0}", rep.terminationtype);
+            // log.InfoFormat("{0}", alglib.ap.format(x, 2));
+
+            Console.SetCursorPosition(0, 40);
+            Console.WriteLine("lsq {0} {1} {2} {3} {4} {5} {6} {7}", x[0], x[1], x[2], x[3], rep.terminationtype, rep.iterationscount, 0, x[3] / CLIGHT);
+
+            lastpos = x;
+        }
+
+        private static void sphere_errorpos(double[] xi, double[] fi, object obj)
+        {
+            List<obinfo> obs = obj as List<obinfo>;
+            double[] myposi = new double[3];
+            myposi[0] = xi[0];
+            myposi[1] = xi[1];
+            myposi[2] = xi[2];
+            double clockbias = xi[3];
+
+            int a = 0;
+            foreach (var ob in obs)
+            {
+                double geodist = Math.Sqrt(Math.Pow((ob.sat_pos[0] - myposi[0]), 2) + Math.Pow((ob.sat_pos[1] - myposi[1]), 2) + Math.Pow((ob.sat_pos[2] - myposi[2]), 2));
+
+                //(dist + rclockbias - CLIGHT * raw.dts[sat] + ion + trp);
+
+                double pr = (ob.rawob.P / MSG_OBS_P_MULTIPLIER);
+
+                // get the measured range and minus the calced range
+                double err = pr - (geodist + clockbias - GPS_C * ob.clock_err);
+
+                fi[a] = err;
+                a++;
+                //Console.WriteLine(err);
             }
         }
     }
