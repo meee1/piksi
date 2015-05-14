@@ -200,7 +200,7 @@ G                                                           SYS / PHASE SHIFT
 
                             byte[] ephbytes = File.ReadAllBytes(ephfile);
 
-                            piksi.header msg = new piksi.header();
+                            piksi.piksimsg msg = new piksi.piksimsg();
 
                             msg.payload = ephbytes;
 
@@ -259,7 +259,7 @@ G                                                           SYS / PHASE SHIFT
         private static void pkrtcm_EphMessage(object sender, EventArgs e)
         {
             //RTCM1019 
-            piksi.header msg = (piksi.header)sender;
+            piksi.piksimsg msg = (piksi.piksimsg)sender;
 
             var eph = msg.payload.ByteArrayToStructure<piksi.ephemeris_t>(0);
 
@@ -306,7 +306,7 @@ G                                                           SYS / PHASE SHIFT
 
         static void pktrimble_EphMessage(object sender, EventArgs e)
         {
-            piksi.header msg = (piksi.header)sender;
+            piksi.piksimsg msg = (piksi.piksimsg)sender;
 
             var eph = msg.payload.ByteArrayToStructure<piksi.ephemeris_t>(0);
 
@@ -325,7 +325,7 @@ G                                                           SYS / PHASE SHIFT
 
         private static void pktrimble_ObsMessage(object sender, EventArgs e)
         {
-            piksi.header msg = (piksi.header)sender;
+            piksi.piksimsg msg = (piksi.piksimsg)sender;
 
             var hdr = msg.payload.ByteArrayToStructure<piksi.msg_obs_header_t>(0);
 
@@ -378,7 +378,7 @@ G                                                           SYS / PHASE SHIFT
             if (rinexoutput == null)
                 return;
 
-            piksi.header msg = (piksi.header)sender;
+            piksi.piksimsg msg = (piksi.piksimsg)sender;
 
             var hdr = msg.payload.ByteArrayToStructure<piksi.msg_obs_header_t>(0);
 
@@ -560,7 +560,7 @@ G                                                           SYS / PHASE SHIFT
 
             //create piksi packet
 
-            piksi.header msgpreamble = new piksi.header();
+            piksi.piksimsg msgpreamble = new piksi.piksimsg();
 
             int lenpre = Marshal.SizeOf(msgpreamble) - 1; // 8
             int lenhdr = Marshal.SizeOf(head);
@@ -618,7 +618,7 @@ G                                                           SYS / PHASE SHIFT
 
         static void pkrtcm_ObsMessage(object sender, EventArgs e)
         {
-            piksi.header msg = (piksi.header)sender;
+            piksi.piksimsg msg = (piksi.piksimsg)sender;
 
             var hdr = msg.payload.ByteArrayToStructure<piksi.msg_obs_header_t>(0);
 
@@ -648,7 +648,7 @@ G                                                           SYS / PHASE SHIFT
                 RTCM3.ob rtcmob = new RTCM3.ob();
 
                 rtcmob.prn = (byte)(ob.prn+1);
-                rtcmob.snr = (byte)(ob.snr);
+                rtcmob.snr = (byte)(ob.snr / piksi.MSG_OBS_SNR_MULTIPLIER);
                 rtcmob.pr = (ob.P / piksi.MSG_OBS_P_MULTIPLIER);
                 rtcmob.cp = -(ob.L.Li + (ob.L.Lf / 256.0));
                 rtcmob.week = hdr.t.wn;

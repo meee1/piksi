@@ -20,7 +20,7 @@ namespace piksi
         public event EventHandler BasePosMessage;
         public event EventHandler EphMessage;
 
-        header msgobs = new header();
+        piksimsg msgobs = new piksimsg();
 
         values prtest = new values();
         values cptest = new values();
@@ -29,7 +29,9 @@ namespace piksi
 
         prsmooth prsmoothdata = new prsmooth();
 
-        ephemeris_t[] eph = new ephemeris_t[33];
+        public ephemeris_t[] eph = new ephemeris_t[33];
+
+        public List<obinfo> obs = new List<obinfo>();
 
         public bool consoleoutput = true;
 
@@ -617,7 +619,7 @@ const double GPS_C =299792458.0;
         }
 
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
-        public struct header
+        public struct piksimsg
         {
             public byte preamble; // 0x55
             public UInt16 msgtype;
@@ -665,7 +667,7 @@ const double GPS_C =299792458.0;
 
             byte[] packet = new u8[data.Length + 6 + 2];
 
-            piksi.header msgpreamble = new piksi.header();
+            piksi.piksimsg msgpreamble = new piksi.piksimsg();
             msgpreamble.crc = 0x1234;
             msgpreamble.preamble = 0x55;
             msgpreamble.msgtype = (ushort)msgtype;
@@ -696,7 +698,7 @@ const double GPS_C =299792458.0;
         // packet read step state
         int state = 0;
 
-        header msg = new header();
+        piksimsg msg = new piksimsg();
 
         int length = 0;
 
@@ -712,7 +714,7 @@ const double GPS_C =299792458.0;
                     if (data == 0x55)
                     {
                         state++;
-                        msg = new header();
+                        msg = new piksimsg();
                         msg.preamble = data;
                         crc = new Crc16Ccitt(InitialCrcValue.Zeros);
                         crcpacket = (ushort)InitialCrcValue.Zeros;
@@ -861,8 +863,6 @@ const double GPS_C =299792458.0;
                                 msgobs.length += (byte)(obscount * lenobs);
                             }
 
-                            calcPos(hdr, obscount);
-
                             for (int a = 0; a < obscount; a++)
                             {
                                 var ob = msg.payload.ByteArrayToStructure<msg_obs_content_t>(lenhdr + a * lenobs);
@@ -881,6 +881,8 @@ const double GPS_C =299792458.0;
 
                             if (count == (total - 1) && msgobs.payload != null)
                             {
+                                calcPos(msgobs, (msgobs.length - lenhdr) / lenobs);
+
                                 if (ObsMessage != null)
                                     ObsMessage(msgobs, null);
                             }
@@ -1154,17 +1156,19 @@ const double GPS_C =299792458.0;
             public double clock_rate_err;
         }
 
-        double[] lastpos = new double[4];
+        public double[] lastpos = new double[4];
 
-        private void calcPos(msg_obs_header_t hdr, int obscount)
+        private void calcPos(piksimsg msg, int obscount)
         {
+            var hdr = msg.payload.ByteArrayToStructure<msg_obs_header_t>(0);
+
             const double CLIGHT = 299792458.0;   /* speed of light (m/s) */
 
             int lenhdr = Marshal.SizeOf(hdr);
 
             int lenobs = Marshal.SizeOf(new msg_obs_content_t());
 
-            List<obinfo> obs = new List<obinfo>();
+            obs.Clear();
 
             for (int a = 0; a < obscount; a++)
             {
@@ -1207,6 +1211,12 @@ const double GPS_C =299792458.0;
             Console.SetCursorPosition(0, 40);
             Console.WriteLine("lsq {0} {1} {2} {3} {4} {5} {6} {7}", x[0], x[1], x[2], x[3], rep.terminationtype, rep.iterationscount, 0, x[3] / CLIGHT);
 
+            foreach (var res in state.fi)
+            {
+                //Console.WriteLine(res.ToString("####0.0000") + "     ");
+            }
+
+       
             lastpos = x;
         }
 
