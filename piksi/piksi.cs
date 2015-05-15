@@ -134,15 +134,22 @@ const double GPS_C =299792458.0;
         //[StructLayout(LayoutKind.Sequential, Pack = 1)]
         struct channel_measurement_t
         {
-            public u8 prn;
-            public double code_phase_chips;
-            public double code_phase_rate;
-            public double carrier_phase;
-            public double carrier_freq;
-            public u32 time_of_week_ms;
-            public double receiver_time;
-            public double snr;
-            public u16 lock_counter;
+            public u8 prn;                  /**< Satellite PRN. */
+            public double code_phase_chips; /**< The code-phase in chips at `receiver_time`. */
+            public double code_phase_rate;  /**< Code phase rate in chips/s. */
+            public double carrier_phase;    /**< Carrier phase in cycles. */
+            public double carrier_freq;     /**< Carrier frequency in Hz. */
+            public u32 time_of_week_ms;     /**< Number of milliseconds since the start of the
+                                GPS week corresponding to the last code rollover.  */
+            public double receiver_time;    /**< Receiver clock time at which this measurement
+                                is valid in seconds. */
+            public double snr;              /**< Signal to noise ratio. */
+            public u16 lock_counter;        /**< This number is changed each time the tracking
+                                channel is re-locked or a cycle slip is
+                                detected and the carrier phase integer
+                                ambiguity is reset.  If this number changes it
+                                is an indication you should reset integer
+                                ambiguity resolution for this channel. */
         }
 
         //[StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -1025,7 +1032,9 @@ const double GPS_C =299792458.0;
 
                             nav_meas.prn = meas.prn;
 
-                            double nav_time = nav_tc;
+                            const double SAMPLE_FREQ = 16368000;
+
+                            double nav_time = nav_tc / SAMPLE_FREQ;
 
                             //rx time rolls over at 262
                             //Each chip is about 977.5 ns
@@ -1041,6 +1050,11 @@ const double GPS_C =299792458.0;
                             nav_meas.tot.tow += (nav_time - meas.receiver_time) * (meas.code_phase_rate / GPS_CA_CHIPPING_RATE);
 
                             //var clock_err = eph[meas.prn + 1].clock_err(nav_meas.tot.tow);
+                            double[] pos = new double[3];
+                            double[] vel = new double[3];
+                            double clock_err=0, clock_err_rate=0;
+
+                            eph[meas.prn + 1].calc_sat_pos(pos,vel,ref clock_err,ref clock_err_rate, nav_meas.tot);
 
                             nav_meas.carrier_phase = meas.carrier_phase;
                             nav_meas.carrier_phase += (nav_time - meas.receiver_time) * meas.carrier_freq;
@@ -1049,7 +1063,7 @@ const double GPS_C =299792458.0;
 
                             nav_meas.lock_counter = meas.lock_counter;
 
-                            nav_meas.raw_pseudorange = (Math.Round(nav_meas.tot.tow) - nav_meas.tot.tow) * GPS_C;// +GPS_NOMINAL_RANGE;
+                            nav_meas.raw_pseudorange = (Math.Round(nav_meas.tot.tow,0) - nav_meas.tot.tow) * GPS_C;// +GPS_NOMINAL_RANGE;
 
                             int satno = meas.prn + 1;
 
@@ -1071,8 +1085,8 @@ const double GPS_C =299792458.0;
                             {
                                 //Console.WriteLine("{0,2} {1} {2}", satno, nav_meas.raw_doppler, meas.carrier_phase);
                                 Console.WriteLine("{0,2} {1,17} {2,17} {3,17} {4,17} {5,17}", meas.prn + 1,
-                                    nav_meas.tot.tow.ToString("0.000"), meas.code_phase_chips,
-                                    meas.code_phase_rate/1000.0, nav_meas.carrier_phase, nav_meas.raw_pseudorange);
+                                    nav_meas.tot.tow, meas.code_phase_chips,
+                                    meas.code_phase_rate / 1000.0, nav_meas.carrier_phase, nav_time - meas.receiver_time);
                             }
 
                             meas_last[nav_meas.prn] = nav_meas;
@@ -1157,6 +1171,7 @@ const double GPS_C =299792458.0;
         }
 
         public double[] lastpos = new double[4];
+        public double[] myposllh = new double[5];
 
         private void calcPos(piksimsg msg, int obscount)
         {
@@ -1208,7 +1223,7 @@ const double GPS_C =299792458.0;
             //log.InfoFormat("{0}", rep.terminationtype);
             // log.InfoFormat("{0}", alglib.ap.format(x, 2));
 
-            Console.SetCursorPosition(0, 40);
+            Console.SetCursorPosition(0, 26);
             Console.WriteLine("lsq {0} {1} {2} {3} {4} {5} {6} {7}", x[0], x[1], x[2], x[3], rep.terminationtype, rep.iterationscount, 0, x[3] / CLIGHT);
 
             foreach (var res in state.fi)
@@ -1216,6 +1231,9 @@ const double GPS_C =299792458.0;
                 //Console.WriteLine(res.ToString("####0.0000") + "     ");
             }
 
+            ecef2pos(x, ref myposllh);
+
+            Console.WriteLine("pos cur {0} {1} {2}", myposllh[0] * R2D, myposllh[1] * R2D, myposllh[2]);
        
             lastpos = x;
         }
@@ -1245,6 +1263,51 @@ const double GPS_C =299792458.0;
                 a++;
                 //Console.WriteLine(err);
             }
+        }
+
+        static double RE_WGS84 = 6378137.0;          /* earth semimajor axis (WGS84) (m) */
+
+        static double FE_WGS84 = (1.0 / 298.257223563); /* earth flattening (WGS84) */
+
+        const double PI = Math.PI; /* pi */
+        const double D2R = (PI / 180.0);   /* deg to rad */
+        const double R2D = (180.0 / PI);   /* rad to deg */
+
+        /* transform ecef to geodetic postion ------------------------------------------
+* transform ecef position to geodetic position
+* args   : double *r        I   ecef position {x,y,z} (m)
+*          double *pos      O   geodetic position {lat,lon,h} (rad,m)
+* return : none
+* notes  : WGS84, ellipsoidal height
+*-----------------------------------------------------------------------------*/
+        static void ecef2pos(double[] r, ref double[] pos)
+        {
+            double e2 = FE_WGS84 * (2.0 - FE_WGS84), r2 = dot(r, r, 2), z, zk, v = RE_WGS84, sinp;
+
+            for (z = r[2], zk = 0.0; Math.Abs(z - zk) >= 1E-4; )
+            {
+                zk = z;
+                sinp = z / Math.Sqrt(r2 + z * z);
+                v = RE_WGS84 / Math.Sqrt(1.0 - e2 * sinp * sinp);
+                z = r[2] + v * e2 * sinp;
+            }
+            pos[0] = r2 > 1E-12 ? Math.Atan(z / Math.Sqrt(r2)) : (r[2] > 0.0 ? PI / 2.0 : -PI / 2.0);
+            pos[1] = r2 > 1E-12 ? Math.Atan2(r[1], r[0]) : 0.0;
+            pos[2] = Math.Sqrt(r2 + z * z) - v;
+        }
+
+        /* inner product ---------------------------------------------------------------
+* inner product of vectors
+* args   : double *a,*b     I   vector a,b (n x 1)
+*          int    n         I   size of vector a,b
+* return : a'*b
+*-----------------------------------------------------------------------------*/
+        static double dot(double[] a, double[] b, int n)
+        {
+            double c = 0.0;
+
+            while (--n >= 0) c += a[n] * b[n];
+            return c;
         }
     }
 }
