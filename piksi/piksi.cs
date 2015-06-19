@@ -27,6 +27,8 @@ namespace piksi
         values doptest = new values();
         values satdisttest = new values();
 
+        values clockdrift = new values();
+
         prsmooth prsmoothdata = new prsmooth();
 
         public ephemeris_t[] eph = new ephemeris_t[33];
@@ -874,6 +876,10 @@ const double GPS_C =299792458.0;
                             {
                                 var ob = msg.payload.ByteArrayToStructure<msg_obs_content_t>(lenhdr + a * lenobs);
 
+                                Console.SetCursorPosition(0, 28 + a + linebase);
+                                double lam1 = 299792458.0 / 1.57542E9;
+                                prsmoothdata.Add(ob.prn + 1, ob.P / MSG_OBS_P_MULTIPLIER, (ob.L.GetValue()) * -lam1);
+
                                 if (consoleoutput)
                                 {
                                     Console.SetCursorPosition(0, 15 + a + linebase);
@@ -1074,8 +1080,8 @@ const double GPS_C =299792458.0;
 
                             var file = File.Open(satno + "-chmeas.csv", FileMode.Append);
 
-                            string datas = String.Format("{0},{1},{2},{3},{4},{5},{6},{7},{8},extra,{9},{10},{11},{12}\n", meas.prn, meas.code_phase_chips, meas.code_phase_rate, meas.carrier_phase, meas.carrier_freq, meas.time_of_week_ms, meas.receiver_time, meas.snr, meas.lock_counter,
-                                nav_tc, nav_meas.tot.tow, nav_meas.carrier_phase, nav_meas.raw_pseudorange);
+                            string datas = String.Format("{0},{1},{2},{3},{4},{5},{6},{7},{8},extra,{9},{10},{11},{12},{13},{14},{15}\n", meas.prn, meas.code_phase_chips, meas.code_phase_rate, meas.carrier_phase, meas.carrier_freq, meas.time_of_week_ms, meas.receiver_time, meas.snr, meas.lock_counter,
+                                nav_tc, nav_meas.tot.tow, nav_meas.carrier_phase, nav_meas.raw_pseudorange, pos[0], pos[1], pos[2]);
 
                             file.Write(ASCIIEncoding.ASCII.GetBytes(datas), 0, datas.Length);
 
@@ -1168,6 +1174,7 @@ const double GPS_C =299792458.0;
             public double[] sat_vel;
             public double clock_err;
             public double clock_rate_err;
+            public gps_time_t time;
         }
 
         public double[] lastpos = new double[4];
@@ -1200,13 +1207,14 @@ const double GPS_C =299792458.0;
                 if (double.IsNaN(clock_err))
                     continue;
 
-                obs.Add(new obinfo(){ clock_err = clock_err,clock_rate_err = clock_rate_err,rawob = ob,sat_pos = pos, sat_vel = vel });
+                obs.Add(new obinfo(){ clock_err = clock_err,clock_rate_err = clock_rate_err,rawob = ob,sat_pos = pos, sat_vel = vel, time = tt });
             }
 
             if (obs.Count == 0)
                 return;
 
             double[] x = lastpos;
+            x[3] += clockdrift.linearRegression(0);
 
             double epsg = 1e-4;
             double epsf = 0;
@@ -1223,8 +1231,10 @@ const double GPS_C =299792458.0;
             //log.InfoFormat("{0}", rep.terminationtype);
             // log.InfoFormat("{0}", alglib.ap.format(x, 2));
 
+            clockdrift.Add(0, x[3]);
+
             Console.SetCursorPosition(0, 26);
-            Console.WriteLine("lsq {0} {1} {2} {3} {4} {5} {6} {7}", x[0], x[1], x[2], x[3], rep.terminationtype, rep.iterationscount, 0, x[3] / CLIGHT);
+            Console.WriteLine("lsq {0} {1} {2} {3} {4} {5} {6} {7}   ", x[0].ToString("0.000"), x[1].ToString("0.000"), x[2].ToString("0.000"), x[3].ToString("0.000"), rep.terminationtype, rep.iterationscount, clockdrift.linearRegression(0), x[3] / CLIGHT);
 
             foreach (var res in state.fi)
             {
@@ -1233,8 +1243,9 @@ const double GPS_C =299792458.0;
 
             ecef2pos(x, ref myposllh);
 
-            Console.WriteLine("pos cur {0} {1} {2}", myposllh[0] * R2D, myposllh[1] * R2D, myposllh[2]);
-       
+
+            Console.WriteLine("pos cur {0,-18} {1,-18} {2,-18} ", myposllh[0] * R2D, myposllh[1] * R2D, myposllh[2]);
+
             lastpos = x;
         }
 
@@ -1250,14 +1261,28 @@ const double GPS_C =299792458.0;
             int a = 0;
             foreach (var ob in obs)
             {
-                double geodist = Math.Sqrt(Math.Pow((ob.sat_pos[0] - myposi[0]), 2) + Math.Pow((ob.sat_pos[1] - myposi[1]), 2) + Math.Pow((ob.sat_pos[2] - myposi[2]), 2));
+                double[] e = new double[3];
+                double dist = geodist(new double[] { ob.sat_pos[0], ob.sat_pos[1], ob.sat_pos[2] }, new double[] { myposi[0], myposi[1], myposi[2] }, ref e);
 
                 //(dist + rclockbias - CLIGHT * raw.dts[sat] + ion + trp);
 
                 double pr = (ob.rawob.P / MSG_OBS_P_MULTIPLIER);
 
+                // calc el and az to sat from ground coords
+                double[] posllh = new double[3];
+                // calc llh
+                ecef2pos(new double[] { myposi[0], myposi[1], myposi[2] }, ref posllh);
+                double[] azel = new double[2];
+                // calc el and az
+                satazel(posllh, e, ref azel);
+
+                // calc ion and tropo corrections
+                //double ion = ionmodel(ob.time, raw.ion, posllh, azel);
+                double REL_HUMI = 0.7;
+                double trp = tropmodel(posllh, azel, REL_HUMI);
+
                 // get the measured range and minus the calced range
-                double err = pr - (geodist + clockbias - GPS_C * ob.clock_err);
+                double err = pr - (dist + clockbias - GPS_C * ob.clock_err + trp);
 
                 fi[a] = err;
                 a++;
@@ -1265,13 +1290,119 @@ const double GPS_C =299792458.0;
             }
         }
 
-        static double RE_WGS84 = 6378137.0;          /* earth semimajor axis (WGS84) (m) */
+        const double RE_WGS84 = 6378137.0;          /* earth semimajor axis (WGS84) (m) */
 
-        static double FE_WGS84 = (1.0 / 298.257223563); /* earth flattening (WGS84) */
+        const double FE_WGS84 = (1.0 / 298.257223563); /* earth flattening (WGS84) */
+
+        static readonly double[] gpst0 = { 1980, 1, 6, 0, 0, 0 }; /* gps time reference */
 
         const double PI = Math.PI; /* pi */
         const double D2R = (PI / 180.0);   /* deg to rad */
         const double R2D = (180.0 / PI);   /* rad to deg */
+        const double CLIGHT = 299792458.0;   /* speed of light (m/s) */
+        const double OMGE = 7.2921151467E-5;   /* earth angular velocity (IS-GPS) (rad/s) */
+
+        /* geometric distance ----------------------------------------------------------
+* compute geometric distance and receiver-to-satellite unit vector
+* args   : double *rs       I   satellilte position (ecef at transmission) (m)
+*          double *rr       I   receiver position (ecef at reception) (m)
+*          double *e        O   line-of-sight vector (ecef)
+* return : geometric distance (m) (0>:error/no satellite position)
+* notes  : distance includes sagnac effect correction
+*-----------------------------------------------------------------------------*/
+        public static double geodist(double[] rs, double[] rr, ref double[] e)
+        {
+            double r;
+            int i;
+
+            if (norm(rs, 3) < RE_WGS84) return -1.0;
+            for (i = 0; i < 3; i++) e[i] = rs[i] - rr[i];
+            r = norm(e, 3);
+            for (i = 0; i < 3; i++) e[i] /= r;
+            return r + OMGE * (rs[0] * rr[1] - rs[1] * rr[0]) / CLIGHT;
+        }
+
+        /* ionosphere model ------------------------------------------------------------
+* compute ionospheric delay by broadcast ionosphere model (klobuchar model)
+* args   : gtime_t t        I   time (gpst)
+*          double *ion      I   iono model parameters {a0,a1,a2,a3,b0,b1,b2,b3}
+*          double *pos      I   receiver position {lat,lon,h} (rad,m)
+*          double *azel     I   azimuth/elevation angle {az,el} (rad)
+* return : ionospheric delay (L1) (m)
+*-----------------------------------------------------------------------------*/
+        static double ionmodel(gtime_t t, double[] ion, double[] pos,
+                               double[] azel)
+        {
+            double[] ion_default = new double[] { /* 2004/1/1 */
+        0.1118E-07,-0.7451E-08,-0.5961E-07, 0.1192E-06,
+        0.1167E+06,-0.2294E+06,-0.1311E+06, 0.1049E+07
+    };
+            double tt, f, psi, phi, lam, amp, per, x;
+            int week = 0;
+
+            if (pos[2] < -1E3 || azel[1] <= 0) return 0.0;
+            if (norm(ion, 8) <= 0.0) ion = ion_default;
+
+            //  trace(1,"ion %f %f %f %f %f %f %f %f\n", ion[0], ion[1], ion[2], ion[3], ion[4], ion[5], ion[6], ion[7]);
+            //ion = ion_default;
+            /* earth centered angle (semi-circle) */
+            psi = 0.0137 / (azel[1] / PI + 0.11) - 0.022;
+
+            /* subionospheric latitude/longitude (semi-circle) */
+            phi = pos[0] / PI + psi * cos(azel[0]);
+            if (phi > 0.416) phi = 0.416;
+            else if (phi < -0.416) phi = -0.416;
+            lam = pos[1] / PI + psi * sin(azel[0]) / cos(phi * PI);
+
+            /* geomagnetic latitude (semi-circle) */
+            phi += 0.064 * cos((lam - 1.617) * PI);
+
+            /* local time (s) */
+            tt = 43200.0 * lam + time2gpst(t, ref week);
+            tt -= floor(tt / 86400.0) * 86400.0; /* 0<=tt<86400 */
+
+            /* slant factor */
+            f = 1.0 + 16.0 * pow(0.53 - azel[1] / PI, 3.0);
+
+            /* ionospheric delay */
+            amp = ion[0] + phi * (ion[1] + phi * (ion[2] + phi * ion[3]));
+            per = ion[4] + phi * (ion[5] + phi * (ion[6] + phi * ion[7]));
+            amp = amp < 0.0 ? 0.0 : amp;
+            per = per < 72000.0 ? 72000.0 : per;
+            x = 2.0 * PI * (tt - 50400.0) / per;
+
+            return CLIGHT * f * (fabs(x) < 1.57 ? 5E-9 + amp * (1.0 + x * x * (-0.5 + x * x / 24.0)) : 5E-9);
+        }
+
+        /* troposphere model -----------------------------------------------------------
+* compute tropospheric delay by standard atmosphere and saastamoinen model
+* args   : 
+*          double *pos      I   receiver position {lat,lon,h} (rad,m)
+*          double *azel     I   azimuth/elevation angle {az,el} (rad)
+*          double humi      I   relative humidity
+* return : tropospheric delay (m)
+*-----------------------------------------------------------------------------*/
+        static double tropmodel(double[] pos, double[] azel,
+                                double humi)
+        {
+            const double temp0 = 15.0; /* temparature at sea level */
+            double hgt, pres, temp, e, z, trph, trpw;
+
+            if (pos[2] < -100.0 || 1E4 < pos[2] || azel[1] <= 0) return 0.0;
+
+            /* standard atmosphere */
+            hgt = pos[2] < 0.0 ? 0.0 : pos[2];
+
+            pres = 1013.25 * Math.Pow(1.0 - 2.2557E-5 * hgt, 5.2568);
+            temp = temp0 - 6.5E-3 * hgt + 273.16;
+            e = 6.108 * humi * Math.Exp((17.15 * temp - 4684.0) / (temp - 38.45));
+
+            /* saastamoninen model */
+            z = PI / 2.0 - azel[1];
+            trph = 0.0022768 * pres / (1.0 - 0.00266 * Math.Cos(2.0 * pos[0]) - 0.00028 * hgt / 1E3) / Math.Cos(z);
+            trpw = 0.002277 * (1255.0 / temp + 0.05) * e / Math.Cos(z);
+            return trph + trpw;
+        }
 
         /* transform ecef to geodetic postion ------------------------------------------
 * transform ecef position to geodetic position
@@ -1296,6 +1427,57 @@ const double GPS_C =299792458.0;
             pos[2] = Math.Sqrt(r2 + z * z) - v;
         }
 
+        /* satellite azimuth/elevation angle -------------------------------------------
+* compute satellite azimuth/elevation angle
+* args   : double *pos      I   geodetic position {lat,lon,h} (rad,m)
+*          double *e        I   receiver-to-satellilte unit vevtor (ecef)
+*          double *azel     IO  azimuth/elevation {az,el} (rad) (NULL: no output)
+*                               (0.0<=azel[0]<2*pi,-pi/2<=azel[1]<=pi/2)
+* return : elevation angle (rad)
+*-----------------------------------------------------------------------------*/
+        static double satazel(double[] pos, double[] e, ref double[] azel)
+        {
+            double az = 0.0, el = PI / 2.0;
+            double[] enu = new double[3];
+
+            if (pos[2] > -RE_WGS84)
+            {
+                {
+                    double[] XYZorigin = new double[3];
+                    double[] XYZecef = e;
+                    double alt = pos[2];
+                    pos[2] = 0;
+                    //                pos2ecef(pos, ref XYZorigin);
+
+                    double lonOrigin = pos[1];
+                    double latOrigin = pos[0];
+
+                    double vectorX = XYZecef[0] - XYZorigin[0];
+                    double vectorY = XYZecef[1] - XYZorigin[1];
+                    double vectorZ = XYZecef[2] - XYZorigin[2];
+
+                    enu[0] = -sin(lonOrigin) * vectorX + cos(lonOrigin) * vectorY;
+                    enu[1] = -sin(latOrigin) * cos(lonOrigin) * vectorX
+                                - sin(latOrigin) * sin(lonOrigin) * vectorY
+                                + cos(latOrigin) * vectorZ;
+                    enu[2] = cos(latOrigin) * cos(lonOrigin) * vectorX
+                                + cos(latOrigin) * sin(lonOrigin) * vectorY
+                                + sin(latOrigin) * vectorZ;
+
+                    pos[2] = alt;
+                    //ecef2enu(pos,e,enu);
+                }
+                az = dot(enu, enu, 2) < 1E-12 ? 0.0 : atan2(enu[0], enu[1]);
+                if (az < 0.0) az += 2 * PI;
+                el = asin(enu[2]);
+
+
+            }
+            azel[0] = az;
+            azel[1] = el;
+            return el;
+        }
+
         /* inner product ---------------------------------------------------------------
 * inner product of vectors
 * args   : double *a,*b     I   vector a,b (n x 1)
@@ -1308,6 +1490,116 @@ const double GPS_C =299792458.0;
 
             while (--n >= 0) c += a[n] * b[n];
             return c;
+        }
+
+        /* euclid norm -----------------------------------------------------------------
+* euclid norm of vector
+* args   : double *a        I   vector a (n x 1)
+*          int    n         I   size of vector a
+* return : || a ||
+*-----------------------------------------------------------------------------*/
+        static double norm(double[] a, int n)
+        {
+            return Math.Sqrt(dot(a, a, n));
+        }
+
+
+        /* time to gps time ------------------------------------------------------------
+        * convert gtime_t struct to week and tow in gps time
+        * args   : gtime_t t        I   gtime_t struct
+        *          int    *week     IO  week number in gps time (NULL: no output)
+        * return : time of week in gps time (s)
+        *-----------------------------------------------------------------------------*/
+        static double time2gpst(gtime_t t, ref int week)
+        {
+            gtime_t t0 = epoch2time(gpst0);
+            uint sec = t.time - t0.time;
+            int w = (int)(sec / (86400 * 7));
+
+            week = w;
+            return (double)(sec - w * 86400 * 7) + t.sec;
+        }
+
+        /* convert calendar day/time to time -------------------------------------------
+* convert calendar day/time to gtime_t struct
+* args   : double *ep       I   day/time {year,month,day,hour,min,sec}
+* return : gtime_t struct
+* notes  : proper in 1970-2037 or 1970-2099 (64bit time_t)
+*-----------------------------------------------------------------------------*/
+        static gtime_t epoch2time(double[] ep)
+        {
+            int[] doy = new int[] { 1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335 };
+            gtime_t time = new gtime_t();
+            int days, sec, year = (int)ep[0], mon = (int)ep[1], day = (int)ep[2];
+
+            if (year < 1970 || 2099 < year || mon < 1 || 12 < mon) return time;
+
+            /* leap year if year%4==0 in 1901-2099 */
+            days = (year - 1970) * 365 + (year - 1969) / 4 + doy[mon - 1] + day - 2 + (year % 4 == 0 && mon >= 3 ? 1 : 0);
+            sec = (int)Math.Floor(ep[5]);
+            time.time = (uint)(days * 86400 + (int)ep[3] * 3600 + (int)ep[4] * 60 + sec);
+            time.sec = ep[5] - sec;
+            return time;
+        }
+
+        public class gtime_t
+        {        /* time struct */
+            public uint time;        /* time (s) expressed by standard time_t */
+            public double sec;         /* fraction of second under 1 s */
+
+            public override string ToString()
+            {
+                return (time + sec).ToString("0.000000");
+            }
+        }
+
+        static double sin(double input)
+        {
+            return Math.Sin(input);
+        }
+        static double asin(double input)
+        {
+            return Math.Asin(input);
+        }
+        static double cos(double input)
+        {
+            return Math.Cos(input);
+        }
+        static double sqrt(double input)
+        {
+            return Math.Sqrt(input);
+        }
+        static double tan(double input)
+        {
+            return Math.Tan(input);
+        }
+        static double atan(double input)
+        {
+            return Math.Atan(input);
+        }
+        static double atan2(double input, double input2)
+        {
+            return Math.Atan2(input, input2);
+        }
+        static double fabs(double input)
+        {
+            return Math.Abs(input);
+        }
+        static double floor(double input)
+        {
+            return Math.Floor(input);
+        }
+        static double pow(double input, double input2)
+        {
+            return Math.Pow(input, input2);
+        }
+        static double exp(double input)
+        {
+            return Math.Exp(input);
+        }
+        static double SQR(double input)
+        {
+            return input * input;
         }
     }
 }

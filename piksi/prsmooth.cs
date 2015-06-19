@@ -54,7 +54,7 @@ namespace piksi
 
         double prsmoothed(int sat)
         {
-            double slip = 15;
+            double slip = 1500;
             //double Nmax = 100;
             int prn = sat;
 
@@ -76,7 +76,7 @@ namespace piksi
             P[prn] = Pn; //{store Pn for next epoch}
             C[prn] = Cn; //{store Cn for next epoch}
 
-            Console.WriteLine("sv {0,2} raw {1} Smooth {2} delta {3} reg {4} {5}", prn, (Pn).ToString("0.000"), (S[prn]).ToString("0.000"), (Pn - S[prn]).ToString("0.000"), linearRegressionpr(prn).ToString("0.000"), linearRegressioncp(prn).ToString("0.000"));
+            Console.WriteLine("sv {0,2} raw {1} Smooth {2} delta {3} reg {4} {5} {6}   ", prn, (Pn).ToString("0.000"), (S[prn]).ToString("0.000"), (Pn - S[prn]).ToString("0.000"), linearRegressionpr(prn).ToString("0.000"), linearRegressioncp(prn).ToString("0.000"), (linearRegressioncp(prn) - linearRegressionpr(prn)).ToString("0.000"));
 
             return S[prn];
         }

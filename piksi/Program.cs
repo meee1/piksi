@@ -8,6 +8,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using piksi.Comms;
+using System.Windows.Forms;
 
 namespace piksi
 {
@@ -23,6 +24,9 @@ namespace piksi
         static StreamWriter rinexoutput2;
 
         static piksi piksi = new piksi();
+
+        static TcpListener rawpiksi = new TcpListener(9876);
+        private static System.Net.Sockets.TcpClient rawpiksiclient;
 
         /*
 import sbp_piksi
@@ -113,6 +117,9 @@ G                                                           SYS / PHASE SHIFT
 
                 return;
             }
+
+            rawpiksi.Start();
+            rawpiksi.BeginAcceptTcpClient(rawpiksiAcceptCallBack, rawpiksi);
             
             // process other commands
             int nextarg = 2;
@@ -170,6 +177,10 @@ G                                                           SYS / PHASE SHIFT
 
                 nextarg = nextarg + 2;
             }
+
+            System.Threading.Thread th = new System.Threading.Thread(UI);
+          //  th.Start();
+
 
             deststream.Open();
 
@@ -244,9 +255,21 @@ G                                                           SYS / PHASE SHIFT
                     }
 
 
-                    // while (deststream.dataToRead)
+                     while (deststream.dataToRead)
                     {
-                        // piksi.read((byte)deststream.ReadByte());
+                         byte[] buffer = new byte[1024];
+                         int read = deststream.Read(buffer,0,buffer.Length);
+                        if (rawpiksiclient != null)
+                        {
+                            rawpiksiclient.Client.Send(buffer, read, SocketFlags.None);
+                            //piksi.read((byte)deststream.ReadByte());
+
+                            if (rawpiksiclient.Client.Available > 0)
+                            {
+                                read = rawpiksiclient.Client.Receive(buffer, buffer.Length, SocketFlags.None);
+                                deststream.Write(buffer,0,read);
+                            }
+                        }
                     }
 
                     System.Threading.Thread.Sleep(5);
@@ -254,6 +277,20 @@ G                                                           SYS / PHASE SHIFT
             }
 
             Console.ReadLine();
+        }
+
+        private static void rawpiksiAcceptCallBack(IAsyncResult ar)
+        {
+            var listener = ((TcpListener) ar.AsyncState);
+
+            rawpiksiclient = listener.EndAcceptTcpClient(ar);
+
+            listener.BeginAcceptTcpClient(rawpiksiAcceptCallBack, listener);
+        }
+
+        static void UI()
+        {
+            Application.Run(new Graph());
         }
 
         private static void pkrtcm_EphMessage(object sender, EventArgs e)
@@ -539,7 +576,7 @@ G                                                           SYS / PHASE SHIFT
 
 
             // rounding - should not need this, but testing against a ublox requires some "lieing"
-            head.t.tow = (uint)(Math.Round((decimal)(head.t.tow / 1000.0)) * (decimal)1000.0);
+            //head.t.tow = (uint)(Math.Round((decimal)(head.t.tow / 1000.0)) * (decimal)1000.0);
 
             List<piksi.msg_obs_content_t> obs = new List<piksi.msg_obs_content_t>();
 
@@ -616,6 +653,10 @@ G                                                           SYS / PHASE SHIFT
 
      private static int[] lockcount = new int[33];
 
+     static double lastpr = 0;
+     static double lastcp = 0;
+        private static double lastgeodist = 0;
+
         static void pkrtcm_ObsMessage(object sender, EventArgs e)
         {
             piksi.piksimsg msg = (piksi.piksimsg)sender;
@@ -644,6 +685,47 @@ G                                                           SYS / PHASE SHIFT
             for (int a = 0; a < obscount; a++)
             {
                 var ob = msg.payload.ByteArrayToStructure<piksi.msg_obs_content_t>(lenhdr + a * lenobs);
+
+                double[] sat_pos = new double[3];
+                double[] sat_vel = new double[3];
+                double clock_err = 0, clock_err_rate = 0;
+
+                piksi.gps_time_t tt = new piksi.gps_time_t() { tow = hdr.t.tow / 1000.0, wn = hdr.t.wn };
+
+                piksi.eph[ob.prn + 1].calc_sat_pos(sat_pos, sat_vel, ref clock_err, ref clock_err_rate, tt);
+
+                double[] e1 = new double[3];
+                double geodist = global::piksi.piksi.geodist(new double[] { sat_pos[0], sat_pos[1], sat_pos[2] }, new double[] { piksi.lastpos[0], piksi.lastpos[1], piksi.lastpos[2] }, ref e1);
+
+                if (a == 1 && Graph.instance != null)
+                {
+                    double wl = CLIGHT / 1.57542E9;
+
+                    double newpr = ob.P / piksi.MSG_OBS_P_MULTIPLIER;
+                    double newcp = -(ob.L.Li + (ob.L.Lf / 256.0)) * wl;
+
+                    Graph.instance.AddData(1, lastpr - newpr);
+                    Graph.instance.AddData(2, lastcp - newcp);
+                    Graph.instance.AddData(3, lastgeodist - geodist);
+
+                   // Graph.instance.AddData(2, lastcp - newcp);
+
+                    lastpr = ob.P / piksi.MSG_OBS_P_MULTIPLIER;
+                    lastcp = -(ob.L.Li + (ob.L.Lf / 256.0)) * wl;
+                    lastgeodist = geodist;
+                }
+
+                if (a == 1 && Graph.instance != null)
+                {
+                    //Graph.instance.AddData(3, ob.P / piksi.MSG_OBS_P_MULTIPLIER);
+                    //Graph.instance.AddData(4, -(ob.L.Li + (ob.L.Lf / 256.0)));
+                }
+
+                if (a == 2 && Graph.instance != null)
+                {
+                    //Graph.instance.AddData(5, ob.P / piksi.MSG_OBS_P_MULTIPLIER);
+                    //Graph.instance.AddData(6, -(ob.L.Li + (ob.L.Lf / 256.0)));
+                }
 
                 RTCM3.ob rtcmob = new RTCM3.ob();
 
