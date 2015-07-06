@@ -48,7 +48,7 @@ self.link.send_message(sbp_piksi.RESET, '')
 
             if (args.Length < 3)
             {
-                Console.WriteLine("Piksi v0.1.3 beta By Michael Oborne");
+                Console.WriteLine("Piksi v0.1.4 beta By Michael Oborne");
                 Console.WriteLine("Copyright Michael Oborne 2015");
                 Console.WriteLine("Usage: program.exe outputformat source destination");
                 Console.WriteLine("outputformat = rtcm, sbp, trimble, rinex");
@@ -95,21 +95,47 @@ G                                                           SYS / PHASE SHIFT
 
                         DateTime reporttime = DateTime.MinValue;
 
-                        using (BinaryReader br = new BinaryReader(new BufferedStream(File.OpenRead(args[1]), 1024 * 1024 * 4)))
+                        if (args[1].ToLower().EndsWith("json"))
                         {
-                            long length = br.BaseStream.Length;
-
-                            while (br.BaseStream.Position < length)
+                            using (StreamReader sr = new StreamReader(new BufferedStream(File.OpenRead(args[1]), 1024 * 1024 * 4)))
                             {
-                                double percent = (br.BaseStream.Position/(double)length) * 100.0;
+                                long length = sr.BaseStream.Length;
 
-                                if (reporttime.Second != DateTime.Now.Second)
+                                while (!sr.EndOfStream)
                                 {
-                                    Console.WriteLine(percent);
-                                    reporttime = DateTime.Now;
-                                }
+                                    double percent = (sr.BaseStream.Position / (double)length) * 100.0;
 
-                                piksi.read(br.ReadByte());
+                                    if (reporttime.Second != DateTime.Now.Second)
+                                    {
+                                        Console.WriteLine(percent);
+                                        reporttime = DateTime.Now;
+                                    }
+
+                                    string line = sr.ReadLine();
+                                    var item = JSON.getpacket(line);
+
+                                    piksi.ProcessMessage(item);
+                                }
+                            }
+                        }
+                        else
+                        {
+                            using (BinaryReader br = new BinaryReader(new BufferedStream(File.OpenRead(args[1]), 1024 * 1024 * 4)))
+                            {
+                                long length = br.BaseStream.Length;
+
+                                while (br.BaseStream.Position < length)
+                                {
+                                    double percent = (br.BaseStream.Position / (double)length) * 100.0;
+
+                                    if (reporttime.Second != DateTime.Now.Second)
+                                    {
+                                        Console.WriteLine(percent);
+                                        reporttime = DateTime.Now;
+                                    }
+
+                                    piksi.read(br.ReadByte());
+                                }
                             }
                         }
                     }
@@ -259,15 +285,22 @@ G                                                           SYS / PHASE SHIFT
                     {
                          byte[] buffer = new byte[1024];
                          int read = deststream.Read(buffer,0,buffer.Length);
-                        if (rawpiksiclient != null)
+                         if (rawpiksiclient != null && rawpiksiclient.Connected)
                         {
-                            rawpiksiclient.Client.Send(buffer, read, SocketFlags.None);
-                            //piksi.read((byte)deststream.ReadByte());
-
-                            if (rawpiksiclient.Client.Available > 0)
+                            try
                             {
-                                read = rawpiksiclient.Client.Receive(buffer, buffer.Length, SocketFlags.None);
-                                deststream.Write(buffer,0,read);
+                                rawpiksiclient.Client.Send(buffer, read, SocketFlags.None);
+                                //piksi.read((byte)deststream.ReadByte());
+
+                                if (rawpiksiclient.Client.Available > 0)
+                                {
+                                    read = rawpiksiclient.Client.Receive(buffer, buffer.Length, SocketFlags.None);
+                                    deststream.Write(buffer, 0, read);
+                                }
+                            }
+                            catch
+                            {
+                                
                             }
                         }
                     }
@@ -447,11 +480,11 @@ G                                                           SYS / PHASE SHIFT
 
                 if (msg.sender == 0)
                 {
-                    rinexoutput2.WriteLine("G{0,2} {1,13} {2,15} {3,31}", (ob.prn + 1).ToString("00"), (ob.P / piksi.MSG_OBS_P_MULTIPLIER).ToString("0.000", System.Globalization.CultureInfo.InvariantCulture), ((ob.L.Li + (ob.L.Lf / 256.0))).ToString("0.0000", System.Globalization.CultureInfo.InvariantCulture), (ob.snr / piksi.MSG_OBS_SNR_MULTIPLIER).ToString("0.000", System.Globalization.CultureInfo.InvariantCulture));
+                    rinexoutput2.WriteLine("G{0,2} {1,13} {2,14}0 {3,31}", (ob.prn + 1).ToString("00"), (ob.P / piksi.MSG_OBS_P_MULTIPLIER).ToString("0.000", System.Globalization.CultureInfo.InvariantCulture), ((ob.L.Li + (ob.L.Lf / 256.0))).ToString("0.000", System.Globalization.CultureInfo.InvariantCulture), (ob.snr / piksi.MSG_OBS_SNR_MULTIPLIER).ToString("0.000", System.Globalization.CultureInfo.InvariantCulture));
                 }
                 else
                 {
-                    rinexoutput.WriteLine("G{0,2} {1,13} {2,15} {3,31}", (ob.prn + 1).ToString("00"), (ob.P / piksi.MSG_OBS_P_MULTIPLIER).ToString("0.000", System.Globalization.CultureInfo.InvariantCulture), ((ob.L.Li + (ob.L.Lf / 256.0))).ToString("0.0000", System.Globalization.CultureInfo.InvariantCulture), (ob.snr / piksi.MSG_OBS_SNR_MULTIPLIER).ToString("0.000", System.Globalization.CultureInfo.InvariantCulture));
+                    rinexoutput.WriteLine("G{0,2} {1,13} {2,14}0 {3,31}", (ob.prn + 1).ToString("00"), (ob.P / piksi.MSG_OBS_P_MULTIPLIER).ToString("0.000", System.Globalization.CultureInfo.InvariantCulture), ((ob.L.Li + (ob.L.Lf / 256.0))).ToString("0.000", System.Globalization.CultureInfo.InvariantCulture), (ob.snr / piksi.MSG_OBS_SNR_MULTIPLIER).ToString("0.000", System.Globalization.CultureInfo.InvariantCulture));
                 }
             }
         }
@@ -607,7 +640,7 @@ G                                                           SYS / PHASE SHIFT
 
             msgpreamble.crc = 0x1234;
             msgpreamble.preamble = 0x55;
-            msgpreamble.msgtype = (ushort)piksi.MSG.MSG_PACKED_OBS;
+            msgpreamble.msg_type = (ushort)piksi.MSG.MSG_PACKED_OBS;
             msgpreamble.sender = 1;
             msgpreamble.length = (byte)(obs.Count * lenobs + lenhdr);
             msgpreamble.payload = new byte[msgpreamble.length];

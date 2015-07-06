@@ -631,7 +631,7 @@ const double GPS_C =299792458.0;
         public struct piksimsg
         {
             public byte preamble; // 0x55
-            public UInt16 msgtype;
+            public UInt16 msg_type;
             public UInt16 sender;
             public byte length; // payload length
             [MarshalAs(UnmanagedType.ByValArray)]
@@ -679,7 +679,7 @@ const double GPS_C =299792458.0;
             piksi.piksimsg msgpreamble = new piksi.piksimsg();
             msgpreamble.crc = 0x1234;
             msgpreamble.preamble = 0x55;
-            msgpreamble.msgtype = (ushort)msgtype;
+            msgpreamble.msg_type = (ushort)msgtype;
             msgpreamble.sender = 1;
             msgpreamble.length = (byte)(data.Length);
             msgpreamble.payload = new byte[msgpreamble.length];
@@ -734,12 +734,12 @@ const double GPS_C =299792458.0;
                     }
                     break;
                 case 1:
-                    msg.msgtype = (u16)(data);
+                    msg.msg_type = (u16)(data);
                     crcpacket = crc.Accumulate(data, crcpacket);
                     state++;
                     break;
                 case 2:
-                    msg.msgtype = (u16)(msg.msgtype + (data << 8));
+                    msg.msg_type = (u16)(msg.msg_type + (data << 8));
                     crcpacket = crc.Accumulate(data, crcpacket);
                     state++;
                     break;
@@ -783,380 +783,7 @@ const double GPS_C =299792458.0;
 
                     if (msg.crc == crcpacket)
                     {
-
-                        if ((MSG)msg.msgtype == MSG.SBP_GPS_TIME)
-                        {
-                            var test = msg.payload.ByteArrayToStructure<sbp_gps_time_t>(0);
-
-                            if (consoleoutput)
-                            {
-                                Console.SetCursorPosition(0, 0);
-                                Console.WriteLine(test.wn + " " + test.tow);
-                            }
-                        }
-                        else if ((MSG)msg.msgtype == MSG.SBP_POS_LLH)
-                        {
-                            var test = msg.payload.ByteArrayToStructure<sbp_pos_llh_t>(0);
-
-                            //Console.WriteLine(test.lat + " " + test.lon + " " + test.height);
-                        }
-                        else if ((MSG)msg.msgtype == MSG.SBP_DOPS)
-                        {
-                            var test = msg.payload.ByteArrayToStructure<sbp_dops_t>(0);
-
-                            //Console.WriteLine(test.gdop + " " + test.hdop + " " + test.tow);
-                        }
-                        else if ((MSG)msg.msgtype == MSG.SBP_POS_ECEF)
-                        {
-                            var test = msg.payload.ByteArrayToStructure<sbp_pos_ecef_t>(0);
-
-                             //Console.WriteLine(test.x + " " + test.y + " " + test.z);
-                        }
-                        else if ((MSG)msg.msgtype == MSG.SBP_VEL_NED)
-                        {
-                            var test = msg.payload.ByteArrayToStructure<sbp_vel_ned_t>(0);
-
-                            //Console.WriteLine(test.n + " " + test.e + " " + test.d);
-                        }
-                        else if ((MSG)msg.msgtype == MSG.SBP_VEL_ECEF)
-                        {
-                            var test = msg.payload.ByteArrayToStructure<sbp_vel_ecef_t>(0);
-
-                            //Console.WriteLine(test.x + " " + test.y + " " + test.z);
-                        }
-                        else if ((MSG)msg.msgtype == MSG.SBP_BASELINE_NED)
-                        {
-                            var test = msg.payload.ByteArrayToStructure<sbp_baseline_ned_t>(0);
-
-                            //Console.WriteLine(test.n + " " + test.e + " " + test.d);
-                        }
-                        else if ((MSG)msg.msgtype == MSG.SBP_BASELINE_ECEF)
-                        {
-                            var test = msg.payload.ByteArrayToStructure<sbp_baseline_ecef_t>(0);
-                            if (consoleoutput)
-                            {
-                                Console.SetCursorPosition(0, 1);
-                                Console.WriteLine("bl " + test.x + " " + test.y + " " + test.z);
-                            }
-                        }
-                        else if ((MSG)msg.msgtype == MSG.MSG_PACKED_OBS)
-                        {
-
-                            var hdr = msg.payload.ByteArrayToStructure<msg_obs_header_t>(0);
-
-                            // total is number of packets
-                            int total = hdr.seq >> MSG_OBS_HEADER_SEQ_SHIFT;
-                            // this is packet count number
-                            int count = hdr.seq & MSG_OBS_HEADER_SEQ_MASK;
-
-                            if (count == 0)
-                            {
-                                msgobs = msg;
-                            }
-
-                            int lenhdr = Marshal.SizeOf(hdr);
-
-                            int lenobs = Marshal.SizeOf(new msg_obs_content_t());
-
-                            int obscount = (msg.length - lenhdr) / lenobs;
-
-                            int linebase = (count > 0) ? 7 : 0;
-
-                            //todo add tow check
-                            if (count > 0 && msgobs.payload != null)
-                            {
-                                // resize msgobs payload to include current msg obs
-                                int currentpayloadend = msgobs.payload.Length;
-                                Array.Resize<byte>(ref msgobs.payload, msgobs.payload.Length + obscount * lenobs);
-                                Array.Copy(msg.payload, lenhdr, msgobs.payload, currentpayloadend, obscount * lenobs);
-                                msgobs.length += (byte)(obscount * lenobs);
-                            }
-
-                            for (int a = 0; a < obscount; a++)
-                            {
-                                var ob = msg.payload.ByteArrayToStructure<msg_obs_content_t>(lenhdr + a * lenobs);
-
-                                Console.SetCursorPosition(0, 28 + a + linebase);
-                                double lam1 = 299792458.0 / 1.57542E9;
-                                prsmoothdata.Add(ob.prn + 1, ob.P / MSG_OBS_P_MULTIPLIER, (ob.L.GetValue()) * -lam1);
-
-                                if (consoleoutput)
-                                {
-                                    Console.SetCursorPosition(0, 15 + a + linebase);
-
-                                    Console.WriteLine("{0,6} {1,10} {2,2} {3,5} {4,11} {5,17} {6,17}           ",
-                                        msg.sender, hdr.t.tow, (ob.prn + 1),
-                                        (ob.snr/MSG_OBS_SNR_MULTIPLIER).ToString("0"),
-                                        (ob.P/MSG_OBS_P_MULTIPLIER).ToString("0.00"),
-                                        (ob.L.Li + (ob.L.Lf/256.0)).ToString("0.000000"), ob.lock_counter);
-                                }
-                            }
-
-                            if (count == (total - 1) && msgobs.payload != null)
-                            {
-                                calcPos(msgobs, (msgobs.length - lenhdr) / lenobs);
-
-                                if (ObsMessage != null)
-                                    ObsMessage(msgobs, null);
-                            }
-                        }
-                        else if ((MSG)msg.msgtype == MSG.MSG_BASE_POS)
-                        {
-                            var bpos = msg.payload.ByteArrayToStructure<msg_base_pos_t>(0);
-
-                            if (consoleoutput)
-                            {
-                                Console.SetCursorPosition(0, 2);
-                                Console.WriteLine("base pos {0} {1} {2}", bpos.pos_lat, bpos.pos_lon, bpos.pos_alt);
-                            }
-
-                            if (BasePosMessage != null)
-                                BasePosMessage(msg, null);                            
-                        }
-                        else if ((MSG)msg.msgtype == MSG.MSG_IAR_STATE)
-                        {
-                            var test = msg.payload.ByteArrayToStructure<msg_iar_state_t>(0);
-
-                            if (consoleoutput)
-                            {
-                                Console.SetCursorPosition(0, 3);
-                                Console.WriteLine("IAR " + test.num_hyps);
-                            }
-                        }
-                        else if ((MSG)msg.msgtype == MSG.MSG_PRINT)
-                        {
-                            if (consoleoutput)
-                            {
-                                Console.SetCursorPosition(0, printline);
-                                Console.Write(printline + " " + ASCIIEncoding.ASCII.GetString(msg.payload));
-                            }
-
-                            printline++;
-
-                            if (printline > 68)
-                                printline = 58;
-                        }
-                        else if ((MSG)msg.msgtype == MSG.MSG_TRACKING_STATE)
-                        {
-                            int len = Marshal.SizeOf(new tracking_state_msg_t());
-
-                            for (int a = 0; a < msg.length; a += len)
-                            {
-                                var test = msg.payload.ByteArrayToStructure<tracking_state_msg_t>(a);
-
-                                if (consoleoutput)
-                                {
-                                    Console.SetCursorPosition(65, a/len);
-                                    Console.WriteLine("{0,2} {1,1} {2,10}", test.prn + 1, test.state, test.cn0);
-                                }
-                            }
-
-                        }
-                        else if ((MSG)msg.msgtype == MSG.MSG_UART_STATE)
-                        {
-                            var test = msg.payload.ByteArrayToStructure<msg_uart_state_t>(0);
-
-                            if (consoleoutput)
-                            {
-                                Console.SetCursorPosition(0, 13);
-                                Console.WriteLine("uart3 " + test.uart3.tx_throughput + " uart2 " +
-                                                  test.uart2.tx_throughput + " obs lat " + test.obs_latency.current +
-                                                  "     ");
-                            }
-                        }
-                        else if ((MSG)msg.msgtype == MSG.MSG_THREAD_STATE)
-                        {
-                            var test = msg.payload.ByteArrayToStructure<msg_thread_state_t>(0);
-                            //Console.WriteLine(new String(test.name) + " cpu " + test.cpu / 10.0 + "\tstackfree " + test.stack_free + "   ");
-                        }
-                        else if ((MSG)msg.msgtype == MSG.SBP_HEARTBEAT)
-                        {
-                            if (consoleoutput)
-                            {
-                                Console.WriteLine("HB");
-                            }
-                            //Console.Clear();
-                            //Console.SetCursorPosition(0, 0);
-                        }
-                        else if ((MSG)msg.msgtype == MSG.MSG_ACQ_RESULT)
-                        {
-                            var test = msg.payload.ByteArrayToStructure<acq_result_msg_t>(0);
-                            if (consoleoutput)
-                            {
-                                Console.SetCursorPosition(0, 7);
-                                Console.WriteLine("aqn\t" + (test.prn + 1) + "\t" + test.snr.ToString("0.00") + "\t" +
-                                                  test.cp + "\t" + test.cf + "\t\t");
-                            }
-                        }
-                        else if ((MSG)msg.msgtype == MSG.MSG_SETTINGS_READ_BY_INDEX)
-                        {
-                            string test = ASCIIEncoding.ASCII.GetString(msg.payload);
-
-                            string[] items = test.Split('\0');
-
-                            if (consoleoutput)
-                            {
-                                Console.SetCursorPosition(0, 4);
-                                Console.WriteLine("setting " + test);
-                            }
-
-                            //var test = msg.payload.ByteArrayToStructure<>(0);
-                            }
-                        else if ((MSG)msg.msgtype == MSG.MSG_BOOTLOADER_HANDSHAKE)
-                        {
-                            string test = ASCIIEncoding.ASCII.GetString(msg.payload);
-                            //var test = msg.payload.ByteArrayToStructure<>(0);
-                        }
-                        else if ((MSG)msg.msgtype == MSG.SBP_STARTUP)
-                        {
-                            //var test = msg.payload.ByteArrayToStructure<>(0);
-                        }
-                        else if ((MSG)msg.msgtype == MSG.MSG_DEBUG_VAR)
-                        {
-                           // Console.Clear();
-                            var value = BitConverter.ToDouble(msg.payload, 0);
-                            string debug = ASCIIEncoding.ASCII.GetString(msg.payload,8,msg.payload.Length - 8);
-                            if (consoleoutput)
-                            {
-                                Console.SetCursorPosition(0, 59);
-                                Console.WriteLine(debug + " " + (value) + "    ");
-                            }
-
-                            nav_tc = (value);
-                        }
-                        else if (msg.msgtype == 0x207)
-                        {
-                            int lenitem = Marshal.SizeOf(new channel_measurement_t());
-
-                            var meas = msg.payload.ByteArrayToStructure<channel_measurement_t>(0);
-                            if (consoleoutput)
-                            {
-                                Console.SetCursorPosition(0, 26 + meas.prn);
-                            }
-
-                            var nav_meas = new navigation_measurement_t();
-
-                            nav_meas.prn = meas.prn;
-
-                            const double SAMPLE_FREQ = 16368000;
-
-                            double nav_time = nav_tc / SAMPLE_FREQ;
-
-                            //rx time rolls over at 262
-                            //Each chip is about 977.5 ns
-                            //The total code period contains 1,023 chips.
-                            //With a chip rate of 1.023 MHz, 1,023 chips last 1 ms; therefore, the C/ A code
-                            //is 1 ms long. This code repeats itself every millisecond.
-                            //http://www.insidegnss.com/node/2898
-
-                            double test = meas.code_phase_chips / GPS_CA_CHIPPING_RATE;
-
-                            nav_meas.tot.tow = meas.time_of_week_ms * 1e-3;
-                            nav_meas.tot.tow += meas.code_phase_chips / GPS_CA_CHIPPING_RATE;
-                            nav_meas.tot.tow += (nav_time - meas.receiver_time) * (meas.code_phase_rate / GPS_CA_CHIPPING_RATE);
-
-                            //var clock_err = eph[meas.prn + 1].clock_err(nav_meas.tot.tow);
-                            double[] pos = new double[3];
-                            double[] vel = new double[3];
-                            double clock_err=0, clock_err_rate=0;
-
-                            eph[meas.prn + 1].calc_sat_pos(pos,vel,ref clock_err,ref clock_err_rate, nav_meas.tot);
-
-                            nav_meas.carrier_phase = meas.carrier_phase;
-                            nav_meas.carrier_phase += (nav_time - meas.receiver_time) * meas.carrier_freq;
-
-                            nav_meas.raw_doppler = meas.carrier_freq;
-
-                            nav_meas.lock_counter = meas.lock_counter;
-
-                            nav_meas.raw_pseudorange = (Math.Round(nav_meas.tot.tow,0) - nav_meas.tot.tow) * GPS_C;// +GPS_NOMINAL_RANGE;
-
-                            int satno = meas.prn + 1;
-
-
-                            prtest.Add(satno, nav_meas.raw_pseudorange);
-                            cptest.Add(satno, nav_meas.carrier_phase);
-                            doptest.Add(satno, nav_meas.raw_doppler);
-
-                            var file = File.Open(satno + "-chmeas.csv", FileMode.Append);
-
-                            string datas = String.Format("{0},{1},{2},{3},{4},{5},{6},{7},{8},extra,{9},{10},{11},{12},{13},{14},{15}\n", meas.prn, meas.code_phase_chips, meas.code_phase_rate, meas.carrier_phase, meas.carrier_freq, meas.time_of_week_ms, meas.receiver_time, meas.snr, meas.lock_counter,
-                                nav_tc, nav_meas.tot.tow, nav_meas.carrier_phase, nav_meas.raw_pseudorange, pos[0], pos[1], pos[2]);
-
-                            file.Write(ASCIIEncoding.ASCII.GetBytes(datas), 0, datas.Length);
-
-                            file.Close();
-
-                            if (consoleoutput)
-                            {
-                                //Console.WriteLine("{0,2} {1} {2}", satno, nav_meas.raw_doppler, meas.carrier_phase);
-                                Console.WriteLine("{0,2} {1,17} {2,17} {3,17} {4,17} {5,17}", meas.prn + 1,
-                                    nav_meas.tot.tow, meas.code_phase_chips,
-                                    meas.code_phase_rate / 1000.0, nav_meas.carrier_phase, nav_time - meas.receiver_time);
-                            }
-
-                            meas_last[nav_meas.prn] = nav_meas;
-                        }
-                        else if (msg.msgtype == 0x208)
-                        {
-                            int lenitem = Marshal.SizeOf(new navigation_measurement_t());
-
-                            var test = msg.payload.ByteArrayToStructure<navigation_measurement_t>(0);
-
-                            int satno = test.prn + 1;
-
-                            double lam1 = 299792458.0 / 1.57542E9;
-
-                            double[] mypos = new double[] { -2444182.6,4625619.0,-3636118.1 };
-
-                            double satdist = Math.Sqrt(Math.Pow(test.sat_pos[0] - mypos[0], 2) + Math.Pow(test.sat_pos[1] - mypos[1], 2) + Math.Pow(test.sat_pos[2] - mypos[2], 2));
-
-                            prtest.Add(satno, test.raw_pseudorange);
-                            cptest.Add(satno, test.carrier_phase);
-                            doptest.Add(satno, test.raw_doppler);
-                            satdisttest.Add(satno,satdist);
-
-                            double smoothed = prsmoothdata.Add(satno, test.raw_pseudorange, test.carrier_phase * -lam1);
-
-                            if (consoleoutput)
-                            {
-                                Console.SetCursorPosition(0, 26 + test.prn);
-                                Console.WriteLine(
-                                    "{0,2} rpr {1,16} tot {2,16} lock {3,2} dop {4,10} cpd {5,10} prd {6} satd {7}   ",
-                                    test.prn + 1, test.raw_pseudorange, test.tot.tow, test.lock_time,
-                                    (test.doppler*lam1).ToString("0.000"),
-                                    (cptest.linearRegression(satno)*-lam1).ToString("0.000"),
-                                    prtest.linearRegression(satno).ToString("0.000"),
-                                    satdisttest.linearRegression(satno).ToString("0.000"));
-                            }
-
-                            var file = File.Open(satno + "-obs.csv", FileMode.Append);
-
-                            string datas = String.Format("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14},{15},extra,{16}\n", test.raw_pseudorange, test.pseudorange, test.carrier_phase, test.raw_doppler, test.doppler, test.sat_pos[0], test.sat_pos[1], test.sat_pos[2], test.sat_vel[0], test.sat_vel[1], test.sat_vel[2], test.snr, test.lock_time, test.tot.tow, test.prn, test.lock_counter, 
-                                satdist);
-
-                            file.Write(ASCIIEncoding.ASCII.GetBytes(datas), 0, datas.Length);
-
-                            file.Close();
-                        }
-                        else if ((MSG)msg.msgtype == MSG.MSG_EPHEMERIS)
-                        {
-                            int lenitem = Marshal.SizeOf(new ephemeris_t());
-
-                            var test = msg.payload.ByteArrayToStructure<ephemeris_t>(0);
-
-                            eph[test.prn+1] = test;
-
-                            File.WriteAllBytes((test.prn + 1) + ".eph", msg.payload);
-
-                            if (EphMessage != null)
-                                EphMessage(msg, null);
-                        }
-                        else
-                        {
-                            Console.SetCursorPosition(0, 5);
-                            Console.WriteLine("UNK: " + (MSG)msg.msgtype + " " + msg.length + " " + msg.sender);
-                        }
+                        ProcessMessage(msg);
                     }
                     else
                     {
@@ -1164,6 +791,384 @@ const double GPS_C =299792458.0;
                         Console.WriteLine(DateTime.Now + " sbp crc fail");
                     }
                     break;
+            }
+        }
+
+        public void ProcessMessage(piksimsg msg)
+        {
+
+            if ((MSG)msg.msg_type == MSG.SBP_GPS_TIME)
+            {
+                var test = msg.payload.ByteArrayToStructure<sbp_gps_time_t>(0);
+
+                if (consoleoutput)
+                {
+                    Console.SetCursorPosition(0, 0);
+                    Console.WriteLine(test.wn + " " + test.tow);
+                }
+            }
+            else if ((MSG)msg.msg_type == MSG.SBP_POS_LLH)
+            {
+                var test = msg.payload.ByteArrayToStructure<sbp_pos_llh_t>(0);
+
+                //Console.WriteLine(test.lat + " " + test.lon + " " + test.height);
+            }
+            else if ((MSG)msg.msg_type == MSG.SBP_DOPS)
+            {
+                var test = msg.payload.ByteArrayToStructure<sbp_dops_t>(0);
+
+                //Console.WriteLine(test.gdop + " " + test.hdop + " " + test.tow);
+            }
+            else if ((MSG)msg.msg_type == MSG.SBP_POS_ECEF)
+            {
+                var test = msg.payload.ByteArrayToStructure<sbp_pos_ecef_t>(0);
+
+                //Console.WriteLine(test.x + " " + test.y + " " + test.z);
+            }
+            else if ((MSG)msg.msg_type == MSG.SBP_VEL_NED)
+            {
+                var test = msg.payload.ByteArrayToStructure<sbp_vel_ned_t>(0);
+
+                //Console.WriteLine(test.n + " " + test.e + " " + test.d);
+            }
+            else if ((MSG)msg.msg_type == MSG.SBP_VEL_ECEF)
+            {
+                var test = msg.payload.ByteArrayToStructure<sbp_vel_ecef_t>(0);
+
+                //Console.WriteLine(test.x + " " + test.y + " " + test.z);
+            }
+            else if ((MSG)msg.msg_type == MSG.SBP_BASELINE_NED)
+            {
+                var test = msg.payload.ByteArrayToStructure<sbp_baseline_ned_t>(0);
+
+                //Console.WriteLine(test.n + " " + test.e + " " + test.d);
+            }
+            else if ((MSG)msg.msg_type == MSG.SBP_BASELINE_ECEF)
+            {
+                var test = msg.payload.ByteArrayToStructure<sbp_baseline_ecef_t>(0);
+                if (consoleoutput)
+                {
+                    Console.SetCursorPosition(0, 1);
+                    Console.WriteLine("bl " + test.x + " " + test.y + " " + test.z);
+                }
+            }
+            else if ((MSG)msg.msg_type == MSG.MSG_PACKED_OBS)
+            {
+
+                var hdr = msg.payload.ByteArrayToStructure<msg_obs_header_t>(0);
+
+                // total is number of packets
+                int total = hdr.seq >> MSG_OBS_HEADER_SEQ_SHIFT;
+                // this is packet count number
+                int count = hdr.seq & MSG_OBS_HEADER_SEQ_MASK;
+
+                if (count == 0)
+                {
+                    msgobs = msg;
+                }
+
+                int lenhdr = Marshal.SizeOf(hdr);
+
+                int lenobs = Marshal.SizeOf(new msg_obs_content_t());
+
+                int obscount = (msg.length - lenhdr) / lenobs;
+
+                int linebase = (count > 0) ? 7 : 0;
+
+                //todo add tow check
+                if (count > 0 && msgobs.payload != null)
+                {
+                    // resize msgobs payload to include current msg obs
+                    int currentpayloadend = msgobs.payload.Length;
+                    Array.Resize<byte>(ref msgobs.payload, msgobs.payload.Length + obscount * lenobs);
+                    Array.Copy(msg.payload, lenhdr, msgobs.payload, currentpayloadend, obscount * lenobs);
+                    msgobs.length += (byte)(obscount * lenobs);
+                }
+
+                for (int a = 0; a < obscount; a++)
+                {
+                    var ob = msg.payload.ByteArrayToStructure<msg_obs_content_t>(lenhdr + a * lenobs);
+
+                    Console.SetCursorPosition(0, 28 + a + linebase);
+                    double lam1 = 299792458.0 / 1.57542E9;
+                    prsmoothdata.Add(ob.prn + 1, ob.P / MSG_OBS_P_MULTIPLIER, (ob.L.GetValue()) * -lam1);
+
+                    if (consoleoutput)
+                    {
+                        Console.SetCursorPosition(0, 15 + a + linebase);
+
+                        Console.WriteLine("{0,6} {1,10} {2,2} {3,5} {4,11} {5,17} {6,17}           ",
+                            msg.sender, hdr.t.tow, (ob.prn + 1),
+                            (ob.snr / MSG_OBS_SNR_MULTIPLIER).ToString("0"),
+                            (ob.P / MSG_OBS_P_MULTIPLIER).ToString("0.00"),
+                            (ob.L.Li + (ob.L.Lf / 256.0)).ToString("0.000000"), ob.lock_counter);
+                    }
+                }
+
+                if (count == (total - 1) && msgobs.payload != null)
+                {
+                    calcPos(msgobs, (msgobs.length - lenhdr) / lenobs);
+
+                    if (ObsMessage != null)
+                        ObsMessage(msgobs, null);
+                }
+            }
+            else if ((MSG)msg.msg_type == MSG.MSG_BASE_POS)
+            {
+                var bpos = msg.payload.ByteArrayToStructure<msg_base_pos_t>(0);
+
+                if (consoleoutput)
+                {
+                    Console.SetCursorPosition(0, 2);
+                    Console.WriteLine("base pos {0} {1} {2}", bpos.pos_lat, bpos.pos_lon, bpos.pos_alt);
+                }
+
+                if (BasePosMessage != null)
+                    BasePosMessage(msg, null);
+            }
+            else if ((MSG)msg.msg_type == MSG.MSG_IAR_STATE)
+            {
+                var test = msg.payload.ByteArrayToStructure<msg_iar_state_t>(0);
+
+                if (consoleoutput)
+                {
+                    Console.SetCursorPosition(0, 3);
+                    Console.WriteLine("IAR " + test.num_hyps);
+                }
+            }
+            else if ((MSG)msg.msg_type == MSG.MSG_PRINT)
+            {
+                if (consoleoutput)
+                {
+                    Console.SetCursorPosition(0, printline);
+                    Console.Write(printline + " " + ASCIIEncoding.ASCII.GetString(msg.payload));
+                }
+
+                printline++;
+
+                if (printline > 68)
+                    printline = 58;
+            }
+            else if ((MSG)msg.msg_type == MSG.MSG_TRACKING_STATE)
+            {
+                int len = Marshal.SizeOf(new tracking_state_msg_t());
+
+                for (int a = 0; a < msg.length; a += len)
+                {
+                    var test = msg.payload.ByteArrayToStructure<tracking_state_msg_t>(a);
+
+                    if (consoleoutput)
+                    {
+                        Console.SetCursorPosition(65, a / len);
+                        Console.WriteLine("{0,2} {1,1} {2,10}", test.prn + 1, test.state, test.cn0);
+                    }
+                }
+
+            }
+            else if ((MSG)msg.msg_type == MSG.MSG_UART_STATE)
+            {
+                var test = msg.payload.ByteArrayToStructure<msg_uart_state_t>(0);
+
+                if (consoleoutput)
+                {
+                    Console.SetCursorPosition(0, 13);
+                    Console.WriteLine("uart3 " + test.uart3.tx_throughput + " uart2 " +
+                                      test.uart2.tx_throughput + " obs lat " + test.obs_latency.current +
+                                      "     ");
+                }
+            }
+            else if ((MSG)msg.msg_type == MSG.MSG_THREAD_STATE)
+            {
+                var test = msg.payload.ByteArrayToStructure<msg_thread_state_t>(0);
+                //Console.WriteLine(new String(test.name) + " cpu " + test.cpu / 10.0 + "\tstackfree " + test.stack_free + "   ");
+            }
+            else if ((MSG)msg.msg_type == MSG.SBP_HEARTBEAT)
+            {
+                if (consoleoutput)
+                {
+                    Console.WriteLine("HB");
+                }
+                //Console.Clear();
+                //Console.SetCursorPosition(0, 0);
+            }
+            else if ((MSG)msg.msg_type == MSG.MSG_ACQ_RESULT)
+            {
+                var test = msg.payload.ByteArrayToStructure<acq_result_msg_t>(0);
+                if (consoleoutput)
+                {
+                    Console.SetCursorPosition(0, 7);
+                    Console.WriteLine("aqn\t" + (test.prn + 1) + "\t" + test.snr.ToString("0.00") + "\t" +
+                                      test.cp + "\t" + test.cf + "\t\t");
+                }
+            }
+            else if ((MSG)msg.msg_type == MSG.MSG_SETTINGS_READ_BY_INDEX)
+            {
+                string test = ASCIIEncoding.ASCII.GetString(msg.payload);
+
+                string[] items = test.Split('\0');
+
+                if (consoleoutput)
+                {
+                    Console.SetCursorPosition(0, 4);
+                    Console.WriteLine("setting " + test);
+                }
+
+                //var test = msg.payload.ByteArrayToStructure<>(0);
+            }
+            else if ((MSG)msg.msg_type == MSG.MSG_BOOTLOADER_HANDSHAKE)
+            {
+                string test = ASCIIEncoding.ASCII.GetString(msg.payload);
+                //var test = msg.payload.ByteArrayToStructure<>(0);
+            }
+            else if ((MSG)msg.msg_type == MSG.SBP_STARTUP)
+            {
+                //var test = msg.payload.ByteArrayToStructure<>(0);
+            }
+            else if ((MSG)msg.msg_type == MSG.MSG_DEBUG_VAR)
+            {
+                // Console.Clear();
+                var value = BitConverter.ToDouble(msg.payload, 0);
+                string debug = ASCIIEncoding.ASCII.GetString(msg.payload, 8, msg.payload.Length - 8);
+                if (consoleoutput)
+                {
+                    Console.SetCursorPosition(0, 59);
+                    Console.WriteLine(debug + " " + (value) + "    ");
+                }
+
+                nav_tc = (value);
+            }
+            else if (msg.msg_type == 0x207)
+            {
+                int lenitem = Marshal.SizeOf(new channel_measurement_t());
+
+                var meas = msg.payload.ByteArrayToStructure<channel_measurement_t>(0);
+                if (consoleoutput)
+                {
+                    Console.SetCursorPosition(0, 26 + meas.prn);
+                }
+
+                var nav_meas = new navigation_measurement_t();
+
+                nav_meas.prn = meas.prn;
+
+                const double SAMPLE_FREQ = 16368000;
+
+                double nav_time = nav_tc / SAMPLE_FREQ;
+
+                //rx time rolls over at 262
+                //Each chip is about 977.5 ns
+                //The total code period contains 1,023 chips.
+                //With a chip rate of 1.023 MHz, 1,023 chips last 1 ms; therefore, the C/ A code
+                //is 1 ms long. This code repeats itself every millisecond.
+                //http://www.insidegnss.com/node/2898
+
+                double test = meas.code_phase_chips / GPS_CA_CHIPPING_RATE;
+
+                nav_meas.tot.tow = meas.time_of_week_ms * 1e-3;
+                nav_meas.tot.tow += meas.code_phase_chips / GPS_CA_CHIPPING_RATE;
+                nav_meas.tot.tow += (nav_time - meas.receiver_time) * (meas.code_phase_rate / GPS_CA_CHIPPING_RATE);
+
+                //var clock_err = eph[meas.prn + 1].clock_err(nav_meas.tot.tow);
+                double[] pos = new double[3];
+                double[] vel = new double[3];
+                double clock_err = 0, clock_err_rate = 0;
+
+                eph[meas.prn + 1].calc_sat_pos(pos, vel, ref clock_err, ref clock_err_rate, nav_meas.tot);
+
+                nav_meas.carrier_phase = meas.carrier_phase;
+                nav_meas.carrier_phase += (nav_time - meas.receiver_time) * meas.carrier_freq;
+
+                nav_meas.raw_doppler = meas.carrier_freq;
+
+                nav_meas.lock_counter = meas.lock_counter;
+
+                nav_meas.raw_pseudorange = (Math.Round(nav_meas.tot.tow, 0) - nav_meas.tot.tow) * GPS_C;// +GPS_NOMINAL_RANGE;
+
+                int satno = meas.prn + 1;
+
+
+                prtest.Add(satno, nav_meas.raw_pseudorange);
+                cptest.Add(satno, nav_meas.carrier_phase);
+                doptest.Add(satno, nav_meas.raw_doppler);
+
+                var file = File.Open(satno + "-chmeas.csv", FileMode.Append);
+
+                string datas = String.Format("{0},{1},{2},{3},{4},{5},{6},{7},{8},extra,{9},{10},{11},{12},{13},{14},{15}\n", meas.prn, meas.code_phase_chips, meas.code_phase_rate, meas.carrier_phase, meas.carrier_freq, meas.time_of_week_ms, meas.receiver_time, meas.snr, meas.lock_counter,
+                    nav_tc, nav_meas.tot.tow, nav_meas.carrier_phase, nav_meas.raw_pseudorange, pos[0], pos[1], pos[2]);
+
+                file.Write(ASCIIEncoding.ASCII.GetBytes(datas), 0, datas.Length);
+
+                file.Close();
+
+                if (consoleoutput)
+                {
+                    //Console.WriteLine("{0,2} {1} {2}", satno, nav_meas.raw_doppler, meas.carrier_phase);
+                    Console.WriteLine("{0,2} {1,17} {2,17} {3,17} {4,17} {5,17}", meas.prn + 1,
+                        nav_meas.tot.tow, meas.code_phase_chips,
+                        meas.code_phase_rate / 1000.0, nav_meas.carrier_phase, nav_time - meas.receiver_time);
+                }
+
+                meas_last[nav_meas.prn] = nav_meas;
+            }
+            else if (msg.msg_type == 0x208)
+            {
+                int lenitem = Marshal.SizeOf(new navigation_measurement_t());
+
+                var test = msg.payload.ByteArrayToStructure<navigation_measurement_t>(0);
+
+                int satno = test.prn + 1;
+
+                double lam1 = 299792458.0 / 1.57542E9;
+
+                double[] mypos = new double[] { -2444182.6, 4625619.0, -3636118.1 };
+
+                double satdist = Math.Sqrt(Math.Pow(test.sat_pos[0] - mypos[0], 2) + Math.Pow(test.sat_pos[1] - mypos[1], 2) + Math.Pow(test.sat_pos[2] - mypos[2], 2));
+
+                prtest.Add(satno, test.raw_pseudorange);
+                cptest.Add(satno, test.carrier_phase);
+                doptest.Add(satno, test.raw_doppler);
+                satdisttest.Add(satno, satdist);
+
+                double smoothed = prsmoothdata.Add(satno, test.raw_pseudorange, test.carrier_phase * -lam1);
+
+                if (consoleoutput)
+                {
+                    Console.SetCursorPosition(0, 26 + test.prn);
+                    Console.WriteLine(
+                        "{0,2} rpr {1,16} tot {2,16} lock {3,2} dop {4,10} cpd {5,10} prd {6} satd {7}   ",
+                        test.prn + 1, test.raw_pseudorange, test.tot.tow, test.lock_time,
+                        (test.doppler * lam1).ToString("0.000"),
+                        (cptest.linearRegression(satno) * -lam1).ToString("0.000"),
+                        prtest.linearRegression(satno).ToString("0.000"),
+                        satdisttest.linearRegression(satno).ToString("0.000"));
+                }
+
+                var file = File.Open(satno + "-obs.csv", FileMode.Append);
+
+                string datas = String.Format("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14},{15},extra,{16}\n", test.raw_pseudorange, test.pseudorange, test.carrier_phase, test.raw_doppler, test.doppler, test.sat_pos[0], test.sat_pos[1], test.sat_pos[2], test.sat_vel[0], test.sat_vel[1], test.sat_vel[2], test.snr, test.lock_time, test.tot.tow, test.prn, test.lock_counter,
+                    satdist);
+
+                file.Write(ASCIIEncoding.ASCII.GetBytes(datas), 0, datas.Length);
+
+                file.Close();
+            }
+            else if ((MSG)msg.msg_type == MSG.MSG_EPHEMERIS)
+            {
+                int lenitem = Marshal.SizeOf(new ephemeris_t());
+
+                var test = msg.payload.ByteArrayToStructure<ephemeris_t>(0);
+
+                eph[test.prn + 1] = test;
+
+                File.WriteAllBytes((test.prn + 1) + ".eph", msg.payload);
+
+                if (EphMessage != null)
+                    EphMessage(msg, null);
+            }
+            else
+            {
+                Console.SetCursorPosition(0, 5);
+                Console.WriteLine("UNK: " + (MSG)msg.msg_type + " " + msg.length + " " + msg.sender);
             }
         }
 
