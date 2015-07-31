@@ -48,7 +48,7 @@ self.link.send_message(sbp_piksi.RESET, '')
 
             if (args.Length < 3)
             {
-                Console.WriteLine("Piksi v0.1.4 beta By Michael Oborne");
+                Console.WriteLine("Piksi v0.1.4.1 beta By Michael Oborne");
                 Console.WriteLine("Copyright Michael Oborne 2015");
                 Console.WriteLine("Usage: program.exe outputformat source destination");
                 Console.WriteLine("outputformat = rtcm, sbp, trimble, rinex");
@@ -56,6 +56,8 @@ self.link.send_message(sbp_piksi.RESET, '')
                 Console.WriteLine("sbp = read rtcm from source and output sbp to destination");
                 Console.WriteLine("trimble = read sbp from source and output trimble rt17 to destination");
                 Console.WriteLine("rinex = read sbp from source file and output rinex to destination file (Files only)");
+                Console.WriteLine();
+                Console.WriteLine("Port 9876 streams all received piksi data to it");
                 Console.WriteLine();
                 Console.WriteLine("source/destination can be 'COM? 115200' or 'tcp://host:port' or 'ntrip://user:pass@host/source' or 'tcp://0.0.0.0:989'");
                 
@@ -176,7 +178,15 @@ G                                                           SYS / PHASE SHIFT
                 nextarg = 3;            
             }
 
-            inputstream.Open();
+            try
+            {
+                inputstream.Open();
+            }
+            catch
+            {
+                Console.WriteLine("Failed to open input");
+                return;
+            }
 
             string portout = args[nextarg];
             // output
@@ -207,8 +217,15 @@ G                                                           SYS / PHASE SHIFT
             System.Threading.Thread th = new System.Threading.Thread(UI);
           //  th.Start();
 
-
-            deststream.Open();
+            try
+            { 
+                deststream.Open();
+            }
+            catch
+            {
+                Console.WriteLine("Failed to open output");
+                return;
+            }
 
             if (outmode.ToLower() == "trimble")
             {

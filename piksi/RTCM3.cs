@@ -707,7 +707,7 @@ namespace piksi
 
         int step = 0;
 
-        byte[] packet = new u8[300];
+        byte[] packet = new u8[1024*4];
         u32 len = 0;
         int a = 0;
         rtcmpreamble pre;
@@ -734,6 +734,9 @@ namespace piksi
                     pre.Read(packet);
                     len = pre.length;
                     a = 0;
+                    // reset on oversize packet
+                    if (len > packet.Length)
+                        step = 0;
                     break;
                 case 3:
                     if (a < (len))
