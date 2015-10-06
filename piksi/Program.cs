@@ -372,13 +372,15 @@ G                                                           SYS / PHASE SHIFT
                 ephrtcm.omg = eph.w;
                 ephrtcm.OMG0 = eph.omega0;
                 ephrtcm.OMGd = eph.omegadot;
-                ephrtcm.prn = eph.prn+1;
+                ephrtcm.prn = eph.sid+1;
                 ephrtcm.sqrtA = eph.sqrta;
                 ephrtcm.tgd = eph.tgd;
                 ephrtcm.toc = eph.toc.tow;
                 ephrtcm.toes = eph.toe.tow;
-                ephrtcm.week = eph.toc.wn;
+                ephrtcm.week = eph.toe.wn;
                 ephrtcm.code = 1;
+                ephrtcm.iode = eph.iode;
+                ephrtcm.iodc = eph.iodc;
 
                 byte[] rtcmpacket = rtcm.gen_eph(ephrtcm);
 
@@ -401,7 +403,7 @@ G                                                           SYS / PHASE SHIFT
             {
                 try
                 {
-                    Trimble.writeTrimble55_1(deststream, eph, eph.prn + 1);
+                    Trimble.writeTrimble55_1(deststream, eph, (int)eph.sid + 1);
                 }
                 catch { }
             }
@@ -724,7 +726,7 @@ G                                                           SYS / PHASE SHIFT
 
             int lenhdr = Marshal.SizeOf(hdr);
 
-            int lenobs = Marshal.SizeOf(new piksi.msg_obs_content_t());
+            int lenobs = Marshal.SizeOf(new piksi.packed_obs_content_t());
 
             int obscount = (msg.length - lenhdr) / lenobs;
 
@@ -734,7 +736,7 @@ G                                                           SYS / PHASE SHIFT
 
             for (int a = 0; a < obscount; a++)
             {
-                var ob = msg.payload.ByteArrayToStructure<piksi.msg_obs_content_t>(lenhdr + a * lenobs);
+                var ob = msg.payload.ByteArrayToStructure<piksi.packed_obs_content_t>(lenhdr + a * lenobs);
 
                 double[] sat_pos = new double[3];
                 double[] sat_vel = new double[3];
@@ -742,7 +744,7 @@ G                                                           SYS / PHASE SHIFT
 
                 piksi.gps_time_t tt = new piksi.gps_time_t() { tow = hdr.t.tow / 1000.0, wn = hdr.t.wn };
 
-                piksi.eph[ob.prn + 1].calc_sat_pos(sat_pos, sat_vel, ref clock_err, ref clock_err_rate, tt);
+                piksi.eph[ob.sid + 1].calc_sat_pos(sat_pos, sat_vel, ref clock_err, ref clock_err_rate, tt);
 
                 double[] e1 = new double[3];
                 double geodist = global::piksi.piksi.geodist(new double[] { sat_pos[0], sat_pos[1], sat_pos[2] }, new double[] { piksi.lastpos[0], piksi.lastpos[1], piksi.lastpos[2] }, ref e1);
@@ -752,7 +754,7 @@ G                                                           SYS / PHASE SHIFT
                     double wl = CLIGHT / 1.57542E9;
 
                     double newpr = ob.P / piksi.MSG_OBS_P_MULTIPLIER;
-                    double newcp = -(ob.L.Li + (ob.L.Lf / 256.0)) * wl;
+                    double newcp = -(ob.L.i + (ob.L.f / 256.0)) * wl;
 
                     Graph.instance.AddData(1, lastpr - newpr);
                     Graph.instance.AddData(2, lastcp - newcp);
@@ -761,7 +763,7 @@ G                                                           SYS / PHASE SHIFT
                    // Graph.instance.AddData(2, lastcp - newcp);
 
                     lastpr = ob.P / piksi.MSG_OBS_P_MULTIPLIER;
-                    lastcp = -(ob.L.Li + (ob.L.Lf / 256.0)) * wl;
+                    lastcp = -(ob.L.i + (ob.L.f / 256.0)) * wl;
                     lastgeodist = geodist;
                 }
 
@@ -779,19 +781,19 @@ G                                                           SYS / PHASE SHIFT
 
                 RTCM3.ob rtcmob = new RTCM3.ob();
 
-                rtcmob.prn = (byte)(ob.prn+1);
-                rtcmob.snr = (byte)(ob.snr / piksi.MSG_OBS_SNR_MULTIPLIER);
+                rtcmob.prn = (byte)(ob.sid+1);
+                rtcmob.snr = (byte)(ob.cn0 / piksi.MSG_OBS_SNR_MULTIPLIER);
                 rtcmob.pr = (ob.P / piksi.MSG_OBS_P_MULTIPLIER);
-                rtcmob.cp = -(ob.L.Li + (ob.L.Lf / 256.0));
+                rtcmob.cp = -(ob.L.i + (ob.L.f / 256.0));
                 rtcmob.week = hdr.t.wn;
                 rtcmob.tow = hdr.t.tow;
 
-                if (lockcount[rtcmob.prn] == ob.lock_counter)
+                if (lockcount[rtcmob.prn] == ob.@lock)
                 {
                     rtcmob.raw.lock1 = 127;
                 }
 
-                lockcount[rtcmob.prn] = ob.lock_counter;
+                lockcount[rtcmob.prn] = ob.@lock;
 
                 t1002.obs.Add(rtcmob);
             }

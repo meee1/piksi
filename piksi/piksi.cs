@@ -111,6 +111,8 @@ const double GPS_C =299792458.0;
 
             MSG_EPHEMERIS = 0x46,  /**< Piksi  -> Host  */
 
+            SBP_MSG_EPHEMERIS = 0x47,
+
             MSG_ACQ_RESULT = 0x15, /**< Piksi  -> Host  */
 
             SBP_STARTUP = 0xFF00,
@@ -240,7 +242,13 @@ const double GPS_C =299792458.0;
             public gps_time_t toe, toc;
             public u8 valid;
             public u8 healthy;
-            public u8 prn;
+ public u32 sid;         /**< Signal identifier being tracked - values 0x00 through 0x1F represent
+GPS PRNs 1 through 32 respectively (PRN-1 notation); other values
+reserved for future use
+ */
+  public u8 iode;        /**< Issue of ephemeris data */
+  public u16 iodc;        /**< Issue of clock data */
+  public u32 reserved;    /**< Reserved field */
 
             /** Time difference in seconds between two GPS times.
  * \param end Higher bound of the time interval whose length is calculated.
@@ -583,6 +591,17 @@ satellite being tracked.
         {
             public s32 i; /**< Carrier phase whole cycles [cycles] */
             public u8 f; /**< Carrier phase fractional part [cycles] */
+
+            public double GetValue()
+            {
+                return (double)(i + (f / 256.0));
+            }
+
+            public void SetValue(double value)
+            {
+                i = (int)value;
+                f = (byte)((value - i) * 256.0);
+            }
         }
 
         public struct packed_obs_content_t
@@ -903,15 +922,15 @@ counter (ith packet of n)
                     Console.WriteLine("bl " + test.x + " " + test.y + " " + test.z);
                 }
             }
-            else if ((MSG)msg.msg_type == MSG.MSG_PACKED_OBS)
+            else if ((MSG)msg.msg_type == MSG.SBP_MSG_OBS)
             {
 
-                var hdr = msg.payload.ByteArrayToStructure<msg_obs_header_t>(0);
+                var hdr = msg.payload.ByteArrayToStructure<observation_header_t>(0);
 
                 // total is number of packets
-                int total = hdr.seq >> MSG_OBS_HEADER_SEQ_SHIFT;
+                int total = hdr.n_obs >> MSG_OBS_HEADER_SEQ_SHIFT;
                 // this is packet count number
-                int count = hdr.seq & MSG_OBS_HEADER_SEQ_MASK;
+                int count = hdr.n_obs & MSG_OBS_HEADER_SEQ_MASK;
 
                 if (count == 0)
                 {
@@ -920,7 +939,7 @@ counter (ith packet of n)
 
                 int lenhdr = Marshal.SizeOf(hdr);
 
-                int lenobs = Marshal.SizeOf(new msg_obs_content_t());
+                int lenobs = Marshal.SizeOf(new packed_obs_content_t());
 
                 int obscount = (msg.length - lenhdr) / lenobs;
 
@@ -938,21 +957,21 @@ counter (ith packet of n)
 
                 for (int a = 0; a < obscount; a++)
                 {
-                    var ob = msg.payload.ByteArrayToStructure<msg_obs_content_t>(lenhdr + a * lenobs);
+                    var ob = msg.payload.ByteArrayToStructure<packed_obs_content_t>(lenhdr + a * lenobs);
 
                     Console.SetCursorPosition(0, 28 + a + linebase);
                     double lam1 = 299792458.0 / 1.57542E9;
-                    prsmoothdata.Add(ob.prn + 1, ob.P / MSG_OBS_P_MULTIPLIER, (ob.L.GetValue()) * -lam1);
+                    prsmoothdata.Add((s32)(ob.sid + 1), ob.P / MSG_OBS_P_MULTIPLIER, (ob.L.GetValue()) * -lam1);
 
                     if (consoleoutput)
                     {
                         Console.SetCursorPosition(0, 15 + a + linebase);
 
                         Console.WriteLine("{0,6} {1,10} {2,2} {3,5} {4,11} {5,17} {6,17}           ",
-                            msg.sender, hdr.t.tow, (ob.prn + 1),
-                            (ob.snr / MSG_OBS_SNR_MULTIPLIER).ToString("0"),
+                            msg.sender, hdr.t.tow, (ob.sid + 1),
+                            (ob.cn0 / MSG_OBS_SNR_MULTIPLIER).ToString("0"),
                             (ob.P / MSG_OBS_P_MULTIPLIER).ToString("0.00"),
-                            (ob.L.Li + (ob.L.Lf / 256.0)).ToString("0.000000"), ob.lock_counter);
+                            (ob.L.i + (ob.L.f / 256.0)).ToString("0.000000"), ob.@lock);
                     }
                 }
 
@@ -1203,15 +1222,15 @@ counter (ith packet of n)
 
                 file.Close();
             }
-            else if ((MSG)msg.msg_type == MSG.MSG_EPHEMERIS)
+            else if ((MSG)msg.msg_type == MSG.SBP_MSG_EPHEMERIS)
             {
                 int lenitem = Marshal.SizeOf(new ephemeris_t());
 
                 var test = msg.payload.ByteArrayToStructure<ephemeris_t>(0);
 
-                eph[test.prn + 1] = test;
+                eph[test.sid + 1] = test;
 
-                File.WriteAllBytes((test.prn + 1) + ".eph", msg.payload);
+                File.WriteAllBytes((test.sid + 1) + ".eph", msg.payload);
 
                 if (EphMessage != null)
                     EphMessage(msg, null);
@@ -1225,7 +1244,7 @@ counter (ith packet of n)
 
         public struct obinfo
         {
-            public msg_obs_content_t rawob;
+            public packed_obs_content_t rawob;
             public double[] sat_pos;
             public double[] sat_vel;
             public double clock_err;
@@ -1238,19 +1257,19 @@ counter (ith packet of n)
 
         private void calcPos(piksimsg msg, int obscount)
         {
-            var hdr = msg.payload.ByteArrayToStructure<msg_obs_header_t>(0);
+            var hdr = msg.payload.ByteArrayToStructure<observation_header_t>(0);
 
             const double CLIGHT = 299792458.0;   /* speed of light (m/s) */
 
             int lenhdr = Marshal.SizeOf(hdr);
 
-            int lenobs = Marshal.SizeOf(new msg_obs_content_t());
+            int lenobs = Marshal.SizeOf(new packed_obs_content_t());
 
             obs.Clear();
 
             for (int a = 0; a < obscount; a++)
             {
-                var ob = msg.payload.ByteArrayToStructure<msg_obs_content_t>(lenhdr + a*lenobs);
+                var ob = msg.payload.ByteArrayToStructure<packed_obs_content_t>(lenhdr + a * lenobs);
 
                 gps_time_t tt = new gps_time_t() { tow = hdr.t.tow / 1000.0, wn = hdr.t.wn };
 
@@ -1258,12 +1277,12 @@ counter (ith packet of n)
                 double[] vel = new double[3];
                 double clock_err = 0, clock_rate_err = 0;
 
-                eph[ob.prn + 1].calc_sat_pos(pos, vel, ref clock_err, ref clock_rate_err, tt);
+                eph[ob.sid + 1].calc_sat_pos(pos, vel, ref clock_err, ref clock_rate_err, tt);
 
                 if (double.IsNaN(clock_err))
                     continue;
 
-                obs.Add(new obinfo(){ clock_err = clock_err,clock_rate_err = clock_rate_err,rawob = ob,sat_pos = pos, sat_vel = vel, time = tt });
+                obs.Add(new obinfo(){ clock_err = clock_err,clock_rate_err = clock_rate_err, rawob = ob,sat_pos = pos, sat_vel = vel, time = tt });
             }
 
             if (obs.Count == 0)
