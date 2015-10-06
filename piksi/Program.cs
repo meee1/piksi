@@ -609,8 +609,7 @@ G                                                           SYS / PHASE SHIFT
             byte total = 1;
             byte count = 0;
 
-            piksi.msg_obs_header_t head = new piksi.msg_obs_header_t();
-            head.seq = (byte)((total << piksi.MSG_OBS_HEADER_SEQ_SHIFT) | (count & piksi.MSG_OBS_HEADER_SEQ_MASK));
+            piksi.observation_header_t head = new piksi.observation_header_t();
             head.t.wn = (ushort)(msg[0].week);
             head.t.tow = (uint)((msg[0].tow * piksi.MSG_OBS_TOW_MULTIPLIER));
 
@@ -628,22 +627,23 @@ G                                                           SYS / PHASE SHIFT
             // rounding - should not need this, but testing against a ublox requires some "lieing"
             //head.t.tow = (uint)(Math.Round((decimal)(head.t.tow / 1000.0)) * (decimal)1000.0);
 
-            List<piksi.msg_obs_content_t> obs = new List<piksi.msg_obs_content_t>();
+            List<piksi.packed_obs_content_t> obs = new List<piksi.packed_obs_content_t>();
 
             foreach (var item in msg)
             {
                 item.cp *= -1;
 
-                piksi.msg_obs_content_t ob = new piksi.msg_obs_content_t();
-                ob.prn = (byte)(item.prn-1);
+                piksi.packed_obs_content_t ob = new piksi.packed_obs_content_t();
+                ob.sid = (byte)(item.prn-1);
                 ob.P = (uint)(item.pr * piksi.MSG_OBS_P_MULTIPLIER);
-                ob.L.Li = (int)item.cp;
-                ob.L.Lf = (byte)((item.cp - ob.L.Li) * 256.0);
-                ob.snr = (byte)(item.snr * piksi.MSG_OBS_SNR_MULTIPLIER);
+                ob.L.i = (int)item.cp;
+                ob.L.f = (byte)((item.cp - ob.L.i) * 256.0);
+                ob.cn0 = (byte)(item.snr * piksi.MSG_OBS_SNR_MULTIPLIER);
 
                 obs.Add(ob);
             }
 
+            head.n_obs = (byte)((total << piksi.MSG_OBS_HEADER_SEQ_SHIFT) | (count & piksi.MSG_OBS_HEADER_SEQ_MASK)); 
 
             //create piksi packet
 
@@ -651,13 +651,13 @@ G                                                           SYS / PHASE SHIFT
 
             int lenpre = Marshal.SizeOf(msgpreamble) - 1; // 8
             int lenhdr = Marshal.SizeOf(head);
-            int lenobs = Marshal.SizeOf(new piksi.msg_obs_content_t());
+            int lenobs = Marshal.SizeOf(new piksi.packed_obs_content_t());
 
             byte[] allbytes = new byte[lenpre + lenhdr + lenobs * obs.Count];
 
             msgpreamble.crc = 0x1234;
             msgpreamble.preamble = 0x55;
-            msgpreamble.msg_type = (ushort)piksi.MSG.MSG_PACKED_OBS;
+            msgpreamble.msg_type = (ushort)piksi.MSG.SBP_MSG_OBS;
             msgpreamble.sender = 1;
             msgpreamble.length = (byte)(obs.Count * lenobs + lenhdr);
             msgpreamble.payload = new byte[msgpreamble.length];

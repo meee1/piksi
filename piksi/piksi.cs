@@ -97,6 +97,7 @@ const double GPS_C =299792458.0;
 
             MSG_OBS = 0x41, /**< Piksi  -> Host  */
             MSG_OLD_OBS = 0x42, /**< Piksi  -> Host  */
+            SBP_MSG_OBS    =         0x0043,
             MSG_PACKED_OBS = 0x45,  /**< Piksi  -> Host  */
 
             MSG_BASE_POS = 0x44,
@@ -567,6 +568,56 @@ const double GPS_C =299792458.0;
             public double pos_lat;
             public double pos_lon;
             public double pos_alt;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 1)]
+        public struct msg_obs_t {
+            public observation_header_t header;    /**< Header of a GPS observation message */
+            public packed_obs_content_t[] obs;    /**< Pseudorange and carrier phase observation for a
+satellite being tracked.
+ */
+} 
+
+        [StructLayout(LayoutKind.Sequential, Pack = 1)]
+        public struct carrier_phase_t
+        {
+            public s32 i; /**< Carrier phase whole cycles [cycles] */
+            public u8 f; /**< Carrier phase fractional part [cycles] */
+        }
+
+        public struct packed_obs_content_t
+        {
+            public u32 P; /**< Pseudorange observation [cm] */
+            public carrier_phase_t L; /**< Carrier phase observation */
+            public u8 cn0; /**< Carrier-to-Noise density [dB Hz] */
+
+            public u16 @lock; /**< Lock indicator. This value changes whenever a satellite
+signal has lost and regained lock, indicating that the
+carrier phase ambiguity may have changed.
+ */
+
+            public u32 sid; /**< Signal identifier of the satellite signal - values 0x00
+through 0x1F represent GPS PRNs 1 through 32 respectively
+(PRN-1 notation); other values reserved for future use.
+ */
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 1)]
+        public struct observation_header_t
+        {
+            public obs_gps_time_t t; /**< GPS time of this observation */
+
+            public u8 n_obs; /**< Total number of observations. First nibble is the size
+of the sequence (n), second nibble is the zero-indexed
+counter (ith packet of n)
+ */
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 1)]
+        public struct obs_gps_time_t
+        {
+            public u32 tow; /**< Milliseconds since start of GPS week [ms] */
+            public u16 wn; /**< GPS week number [week] */
         }
 
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
