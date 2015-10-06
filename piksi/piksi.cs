@@ -300,6 +300,9 @@ reserved for future use
                 // Seconds from clock data reference time (toc)
                 tdiff = gpsdifftime(tot, this.toc);
 
+                if (tdiff > 4*3600)
+                    tdiff = gpsdifftime(tot, this.toe);
+
                 clock_err = this.af0 + tdiff*(this.af1 + tdiff*this.af2) - this.tgd;
                 clock_rate_err = this.af1 + 2.0*tdiff*this.af2;
 
@@ -309,8 +312,8 @@ reserved for future use
                 // If tdiff is too large our ephemeris isn't valid, maybe we want to wait until we get a
                 // new one? At least let's warn the user.
                 // TODO: this doesn't exclude ephemerides older than a week so could be made better.
-                //if (Math.Abs(tdiff) > 4*3600)
-                //    Console.Write(" WARNING: uSing ephemeris older (or newer!) than 4 hours.\n");
+                if (Math.Abs(tdiff) > 4*3600)
+                    Console.Write(" WARNING: using ephemeris older (or newer!) than 4 hours.\n");
 
                 // Calculate position per IS-GPS-200D p 97 Table 20-IV
                 a = this.sqrta*this.sqrta; // [m] Semi-major axis
@@ -1339,9 +1342,11 @@ counter (ith packet of n)
                 double[] e = new double[3];
                 double dist = geodist(new double[] { ob.sat_pos[0], ob.sat_pos[1], ob.sat_pos[2] }, new double[] { myposi[0], myposi[1], myposi[2] }, ref e);
 
+                double pr = (ob.rawob.P / MSG_OBS_P_MULTIPLIER);
+
                 //(dist + rclockbias - CLIGHT * raw.dts[sat] + ion + trp);
 
-                double pr = (ob.rawob.P / MSG_OBS_P_MULTIPLIER);
+                
 
                 // calc el and az to sat from ground coords
                 double[] posllh = new double[3];
@@ -1357,7 +1362,7 @@ counter (ith packet of n)
                 double trp = tropmodel(posllh, azel, REL_HUMI);
 
                 // get the measured range and minus the calced range
-                double err = pr - (dist + clockbias - GPS_C * ob.clock_err + trp);
+                double err = pr - (dist - clockbias - GPS_C * ob.clock_err + trp);
 
                 fi[a] = err;
                 a++;
