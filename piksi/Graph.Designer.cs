@@ -31,6 +31,7 @@
             this.components = new System.ComponentModel.Container();
             this.zedGraphControl1 = new ZedGraph.ZedGraphControl();
             this.timer1 = new System.Windows.Forms.Timer(this.components);
+            this.but_clear = new System.Windows.Forms.Button();
             this.SuspendLayout();
             // 
             // zedGraphControl1
@@ -54,11 +55,22 @@
             // 
             this.timer1.Tick += new System.EventHandler(this.timer1_Tick);
             // 
+            // but_clear
+            // 
+            this.but_clear.Location = new System.Drawing.Point(912, 0);
+            this.but_clear.Name = "but_clear";
+            this.but_clear.Size = new System.Drawing.Size(75, 23);
+            this.but_clear.TabIndex = 1;
+            this.but_clear.Text = "Clear";
+            this.but_clear.UseVisualStyleBackColor = true;
+            this.but_clear.Click += new System.EventHandler(this.but_clear_Click);
+            // 
             // Graph
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(1011, 509);
+            this.Controls.Add(this.but_clear);
             this.Controls.Add(this.zedGraphControl1);
             this.Name = "Graph";
             this.Text = "Graph";
@@ -68,7 +80,8 @@
 
         #endregion
 
-        private ZedGraph.ZedGraphControl zedGraphControl1;
         private System.Windows.Forms.Timer timer1;
+        private System.Windows.Forms.Button but_clear;
+        public ZedGraph.ZedGraphControl zedGraphControl1;
     }
 }

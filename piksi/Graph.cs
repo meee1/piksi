@@ -48,39 +48,38 @@ namespace piksi
             myCurve = myPane.AddCurve("line1", line1, Color.Red, SymbolType.None);
             myCurve = myPane.AddCurve("line2", line2, Color.Green, SymbolType.None);
             myCurve = myPane.AddCurve("line3", line3, Color.Blue, SymbolType.None);
-            myCurve.IsY2Axis = true;
             myCurve = myPane.AddCurve("line4", line4, Color.Purple, SymbolType.None);
             myCurve.IsY2Axis = true;
             myCurve = myPane.AddCurve("line5", line5, Color.Orange, SymbolType.None);
             myCurve = myPane.AddCurve("line6", line6, Color.Pink, SymbolType.None);
         }
 
-        public void AddData(int line, double data)
+        public void AddData(int line, double time, double data)
         {
             if (Math.Abs(data) > 10000)
                 return;
 
-            var date = new XDate(DateTime.Now);
+            //var date = new XDate(DateTime.Now);
 
             switch (line)
             {
                 case 1:
-                    line1.Add(date, data);
+                    line1.Add(time, data);
                     break;
                 case 2:
-                    line2.Add(date, data);
+                    line2.Add(time, data);
                     break;
                 case 3:
-                    line3.Add(date, data);
+                    line3.Add(time, data);
                     break;
                 case 4:
-                    line4.Add(date, data);
+                    line4.Add(time, data);
                     break;
                 case 5:
-                    line5.Add(date, data);
+                    line5.Add(time, data);
                     break;
                 case 6:
-                    line6.Add(date, data);
+                    line6.Add(time, data);
                     break;
             }
         }
@@ -97,6 +96,16 @@ namespace piksi
             catch { }
 
             zedGraphControl1.Invalidate();
+        }
+
+        private void but_clear_Click(object sender, EventArgs e)
+        {
+            line1.Clear();
+            line2.Clear();
+            line3.Clear();
+            line4.Clear();
+            line5.Clear();
+            line6.Clear();
         }
     }
 }

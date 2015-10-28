@@ -215,7 +215,7 @@ G                                                           SYS / PHASE SHIFT
             }
 
             System.Threading.Thread th = new System.Threading.Thread(UI);
-          //  th.Start();
+            //th.Start();
 
             try
             { 
@@ -708,6 +708,8 @@ G                                                           SYS / PHASE SHIFT
      static double lastpr = 0;
      static double lastcp = 0;
         private static double lastgeodist = 0;
+        private static double lastgeodist2 = 0;
+        private static double lastclockbias = 0;
 
         static void pkrtcm_ObsMessage(object sender, EventArgs e)
         {
@@ -747,24 +749,39 @@ G                                                           SYS / PHASE SHIFT
                 piksi.eph[ob.sid + 1].calc_sat_pos(sat_pos, sat_vel, ref clock_err, ref clock_err_rate, tt);
 
                 double[] e1 = new double[3];
-                double geodist = global::piksi.piksi.geodist(new double[] { sat_pos[0], sat_pos[1], sat_pos[2] }, new double[] { piksi.lastpos[0], piksi.lastpos[1], piksi.lastpos[2] }, ref e1);
+                double geodist = global::piksi.piksi.geodistnosagnac(new double[] { sat_pos[0], sat_pos[1], sat_pos[2] }, new double[] { piksi.lastpos[0], piksi.lastpos[1], piksi.lastpos[2] }, ref e1);
 
-                if (a == 1 && Graph.instance != null)
+                double geodist2 = global::piksi.piksi.geodist(new double[] { sat_pos[0], sat_pos[1], sat_pos[2] }, new double[] { piksi.lastpos[0], piksi.lastpos[1], piksi.lastpos[2] }, ref e1);
+
+                if (a == 2 && Graph.instance != null && !Graph.instance.IsDisposed)
                 {
+                    Graph.instance.Invoke((Action) delegate()
+                    {
+                        try
+                        {
+                            Graph.instance.zedGraphControl1.GraphPane.Title.Text =
+                                (ob.sid+1).ToString();
+                        }
+                        catch {
+                        }
+                    });
+
                     double wl = CLIGHT / 1.57542E9;
 
-                    double newpr = ob.P / piksi.MSG_OBS_P_MULTIPLIER;
-                    double newcp = -(ob.L.i + (ob.L.f / 256.0)) * wl;
+                    double newpr = (ob.P/piksi.MSG_OBS_P_MULTIPLIER) + piksi.lastpos[3];
+                    double newcp = -(ob.L.i + (ob.L.f / 256.0)) * wl;// +(piksi.clockdrift.linearRegression(0));
 
-                    Graph.instance.AddData(1, lastpr - newpr);
-                    Graph.instance.AddData(2, lastcp - newcp);
-                    Graph.instance.AddData(3, lastgeodist - geodist);
+                    Graph.instance.AddData(1, tt.tow, lastpr - newpr);
+                    Graph.instance.AddData(2, tt.tow, lastcp - newcp);
+                    Graph.instance.AddData(3, tt.tow, lastgeodist - geodist);
 
-                   // Graph.instance.AddData(2, lastcp - newcp);
+                    //Graph.instance.AddData(5, tt.tow, -(lastclockbias - piksi.lastpos[3]));
 
-                    lastpr = ob.P / piksi.MSG_OBS_P_MULTIPLIER;
-                    lastcp = -(ob.L.i + (ob.L.f / 256.0)) * wl;
+                    lastpr = newpr;
+                    lastcp = newcp;
                     lastgeodist = geodist;
+                    lastgeodist2 = geodist2;
+                    lastclockbias = piksi.lastpos[3];
                 }
 
                 if (a == 1 && Graph.instance != null)
@@ -783,7 +800,7 @@ G                                                           SYS / PHASE SHIFT
 
                 rtcmob.prn = (byte)(ob.sid+1);
                 rtcmob.snr = (byte)(ob.cn0 / piksi.MSG_OBS_SNR_MULTIPLIER);
-                rtcmob.pr = (ob.P / piksi.MSG_OBS_P_MULTIPLIER);
+                rtcmob.pr = (ob.P / piksi.MSG_OBS_P_MULTIPLIER) +piksi.lastpos[3];
                 rtcmob.cp = -(ob.L.i + (ob.L.f / 256.0));
                 rtcmob.week = hdr.t.wn;
                 rtcmob.tow = hdr.t.tow;

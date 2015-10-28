@@ -27,9 +27,9 @@ namespace piksi
         values doptest = new values();
         values satdisttest = new values();
 
-        values clockdrift = new values();
+        public values clockdrift = new values();
 
-        prsmooth prsmoothdata = new prsmooth();
+        public prsmooth prsmoothdata = new prsmooth();
 
         public ephemeris_t[] eph = new ephemeris_t[33];
 
@@ -136,6 +136,9 @@ const double GPS_C =299792458.0;
         //----------------------------------------------------------
         //----------------------------------------------------------
         //----------------------------------------------------------
+
+   
+
         //[StructLayout(LayoutKind.Sequential, Pack = 1)]
         struct channel_measurement_t
         {
@@ -312,8 +315,8 @@ reserved for future use
                 // If tdiff is too large our ephemeris isn't valid, maybe we want to wait until we get a
                 // new one? At least let's warn the user.
                 // TODO: this doesn't exclude ephemerides older than a week so could be made better.
-                if (Math.Abs(tdiff) > 4*3600)
-                    Console.Write(" WARNING: using ephemeris older (or newer!) than 4 hours.\n");
+               // if (Math.Abs(tdiff) > 4*3600)
+                   // Console.Write(" WARNING: using ephemeris older (or newer!) than 4 hours.\n");
 
                 // Calculate position per IS-GPS-200D p 97 Table 20-IV
                 a = this.sqrta*this.sqrta; // [m] Semi-major axis
@@ -886,12 +889,12 @@ counter (ith packet of n)
 
                 //Console.WriteLine(test.lat + " " + test.lon + " " + test.height);
             }
-            else if ((MSG)msg.msg_type == MSG.SBP_DOPS)
+            /*else if ((MSG)msg.msg_type == MSG.SBP_DOPS)
             {
                 var test = msg.payload.ByteArrayToStructure<sbp_dops_t>(0);
 
                 //Console.WriteLine(test.gdop + " " + test.hdop + " " + test.tow);
-            }
+            }*/
             else if ((MSG)msg.msg_type == MSG.SBP_POS_ECEF)
             {
                 var test = msg.payload.ByteArrayToStructure<sbp_pos_ecef_t>(0);
@@ -946,7 +949,7 @@ counter (ith packet of n)
 
                 int obscount = (msg.length - lenhdr) / lenobs;
 
-                int linebase = (count > 0) ? 7 : 0;
+                int linebase = (count > 0) ? 6 : 0;
 
                 //todo add tow check
                 if (count > 0 && msgobs.payload != null)
@@ -964,7 +967,7 @@ counter (ith packet of n)
 
                     Console.SetCursorPosition(0, 28 + a + linebase);
                     double lam1 = 299792458.0 / 1.57542E9;
-                    prsmoothdata.Add((s32)(ob.sid + 1), ob.P / MSG_OBS_P_MULTIPLIER, (ob.L.GetValue()) * -lam1);
+                    prsmoothdata.Add((s32)(ob.sid + 1), ob.P / MSG_OBS_P_MULTIPLIER + lastpos[3] + clockdrift.linearRegression(0), (ob.L.GetValue()) * -lam1);
 
                     if (consoleoutput)
                     {
@@ -1097,18 +1100,23 @@ counter (ith packet of n)
             {
                 //var test = msg.payload.ByteArrayToStructure<>(0);
             }
-            else if ((MSG)msg.msg_type == MSG.MSG_DEBUG_VAR)
+            else if (msg.msg_type == 0x206)
             {
                 // Console.Clear();
-                var value = BitConverter.ToDouble(msg.payload, 0);
-                string debug = ASCIIEncoding.ASCII.GetString(msg.payload, 8, msg.payload.Length - 8);
-                if (consoleoutput)
+                if (msg.payload.Length == 8)
                 {
-                    Console.SetCursorPosition(0, 59);
-                    Console.WriteLine(debug + " " + (value) + "    ");
-                }
+                    var value = BitConverter.ToDouble(msg.payload, 0);
+                    string debug = ASCIIEncoding.ASCII.GetString(msg.payload, 8, msg.payload.Length - 8);
+                    if (consoleoutput)
+                    {
+                        Console.SetCursorPosition(0, 59);
+                        Console.WriteLine(debug + " " + (value) + "    ");
+                    }
 
-                nav_tc = (value);
+                    nav_tc = (value);
+
+                    linebase = 0;
+                }
             }
             else if (msg.msg_type == 0x207)
             {
@@ -1117,16 +1125,16 @@ counter (ith packet of n)
                 var meas = msg.payload.ByteArrayToStructure<channel_measurement_t>(0);
                 if (consoleoutput)
                 {
-                    Console.SetCursorPosition(0, 26 + meas.prn);
+                    Console.SetCursorPosition(0, 38 + linebase++);
                 }
 
                 var nav_meas = new navigation_measurement_t();
 
-                nav_meas.prn = meas.prn;
-
                 const double SAMPLE_FREQ = 16368000;
 
-                double nav_time = nav_tc / SAMPLE_FREQ;
+                double nav_time = nav_tc;
+
+                //nav_time = Math.Floor(meas.receiver_time);
 
                 //rx time rolls over at 262
                 //Each chip is about 977.5 ns
@@ -1135,11 +1143,22 @@ counter (ith packet of n)
                 //is 1 ms long. This code repeats itself every millisecond.
                 //http://www.insidegnss.com/node/2898
 
+                // 1 chip ~= 293.0523m (0.001/1023 * GPS_C)
+
                 double test = meas.code_phase_chips / GPS_CA_CHIPPING_RATE;
 
-                nav_meas.tot.tow = meas.time_of_week_ms * 1e-3;
-                nav_meas.tot.tow += meas.code_phase_chips / GPS_CA_CHIPPING_RATE;
-                nav_meas.tot.tow += (nav_time - meas.receiver_time) * (meas.code_phase_rate / GPS_CA_CHIPPING_RATE);
+                nav_meas.tot.tow = meas.time_of_week_ms * 1e-3; // set ms we are in
+                nav_meas.tot.tow += meas.code_phase_chips / GPS_CA_CHIPPING_RATE; // set how many chips we have seen
+                nav_meas.tot.tow += (nav_time - meas.receiver_time) * (meas.code_phase_rate / GPS_CA_CHIPPING_RATE); // align tow to nav_time //meas.code_phase_rate
+
+                nav_meas.raw_doppler = meas.carrier_freq;
+                nav_meas.snr = meas.snr;
+                nav_meas.prn = meas.prn;
+
+                nav_meas.carrier_phase = meas.carrier_phase;
+                nav_meas.carrier_phase += (nav_time - meas.receiver_time) * meas.carrier_freq;
+
+                nav_meas.lock_counter = meas.lock_counter;
 
                 //var clock_err = eph[meas.prn + 1].clock_err(nav_meas.tot.tow);
                 double[] pos = new double[3];
@@ -1148,16 +1167,21 @@ counter (ith packet of n)
 
                 eph[meas.prn + 1].calc_sat_pos(pos, vel, ref clock_err, ref clock_err_rate, nav_meas.tot);
 
-                nav_meas.carrier_phase = meas.carrier_phase;
-                nav_meas.carrier_phase += (nav_time - meas.receiver_time) * meas.carrier_freq;
+                if ((nav_meas.tot.tow + clock_err) > min_TOF)
+                {
+                    min_TOF = nav_meas.tot.tow;
+                }
 
-                nav_meas.raw_doppler = meas.carrier_freq;
+                nav_meas.raw_pseudorange = (min_TOF - nav_meas.tot.tow) * GPS_C;// +GPS_NOMINAL_RANGE;
 
-                nav_meas.lock_counter = meas.lock_counter;
+                //nav_meas.raw_pseudorange = nav_meas.tot.tow
 
-                nav_meas.raw_pseudorange = (Math.Round(nav_meas.tot.tow, 0) - nav_meas.tot.tow) * GPS_C;// +GPS_NOMINAL_RANGE;
+                //double tof = Math.Ceiling(nav_meas.tot.tow) - nav_meas.tot.tow;
+                //Console.WriteLine("TOF " + (nav_meas.prn + 1) + " " + tof.ToString("0.00000000000") + " " + (tof * GPS_C));
+                nav_meas.pseudorange = nav_meas.raw_pseudorange + clock_err * GPS_C;
 
                 int satno = meas.prn + 1;
+
 
 
                 prtest.Add(satno, nav_meas.raw_pseudorange);
@@ -1166,8 +1190,10 @@ counter (ith packet of n)
 
                 var file = File.Open(satno + "-chmeas.csv", FileMode.Append);
 
-                string datas = String.Format("{0},{1},{2},{3},{4},{5},{6},{7},{8},extra,{9},{10},{11},{12},{13},{14},{15}\n", meas.prn, meas.code_phase_chips, meas.code_phase_rate, meas.carrier_phase, meas.carrier_freq, meas.time_of_week_ms, meas.receiver_time, meas.snr, meas.lock_counter,
-                    nav_tc, nav_meas.tot.tow, nav_meas.carrier_phase, nav_meas.raw_pseudorange, pos[0], pos[1], pos[2]);
+                string datas = String.Format("{0},{1},{2},{3},{4},{5},{6},{7},{8},extra,{9},{10},{11},{12},{13},{14},{15},{16},{17}\n",
+                    meas.prn, meas.code_phase_chips, meas.code_phase_rate, meas.carrier_phase, meas.carrier_freq, meas.time_of_week_ms, 
+                    meas.receiver_time, meas.snr, meas.lock_counter,nav_tc, nav_meas.tot.tow, nav_meas.carrier_phase, nav_meas.raw_pseudorange,
+                    pos[0], pos[1], pos[2], clock_err, clock_err_rate);
 
                 file.Write(ASCIIEncoding.ASCII.GetBytes(datas), 0, datas.Length);
 
@@ -1245,6 +1271,9 @@ counter (ith packet of n)
             }
         }
 
+        private double min_TOF = -1;
+        private int linebase = 0;
+
         public struct obinfo
         {
             public packed_obs_content_t rawob;
@@ -1314,21 +1343,26 @@ counter (ith packet of n)
             Console.SetCursorPosition(0, 26);
             Console.WriteLine("lsq {0} {1} {2} {3} {4} {5} {6} {7}   ", x[0].ToString("0.000"), x[1].ToString("0.000"), x[2].ToString("0.000"), x[3].ToString("0.000"), rep.terminationtype, rep.iterationscount, clockdrift.linearRegression(0), x[3] / CLIGHT);
 
-            foreach (var res in state.fi)
-            {
-                //Console.WriteLine(res.ToString("####0.0000") + "     ");
-            }
-
             ecef2pos(x, ref myposllh);
-
 
             Console.WriteLine("pos cur {0,-18} {1,-18} {2,-18} ", myposllh[0] * R2D, myposllh[1] * R2D, myposllh[2]);
 
+            if (myposllh[2] > 2000000)
+                x = new double[4];
+
             lastpos = x;
+
+            //Console.SetCursorPosition(0, 26 + 12);
+            foreach (var res in state.fi)
+            {
+                //Console.WriteLine(res.ToString("0.0000") + "     ");
+            }
         }
 
         private static void sphere_errorpos(double[] xi, double[] fi, object obj)
         {
+            //pos2ecef(new[] { -34.9806329933 * D2R, 117.852008540 * D2R, 11.034 }, ref xi);
+
             List<obinfo> obs = obj as List<obinfo>;
             double[] myposi = new double[3];
             myposi[0] = xi[0];
@@ -1356,6 +1390,13 @@ counter (ith packet of n)
                 // calc el and az
                 satazel(posllh, e, ref azel);
 
+                double el = azel[1] * R2D;
+
+                double scale = 1;// (el / 90) / 4 + 0.75;
+
+                if (xi[3] < 1000)
+                    scale = 1;
+
                 // calc ion and tropo corrections
                 //double ion = ionmodel(ob.time, raw.ion, posllh, azel);
                 double REL_HUMI = 0.7;
@@ -1364,7 +1405,7 @@ counter (ith packet of n)
                 // get the measured range and minus the calced range
                 double err = pr - (dist - clockbias - GPS_C * ob.clock_err + trp);
 
-                fi[a] = err;
+                fi[a] = err * scale;
                 a++;
                 //Console.WriteLine(err);
             }
@@ -1400,6 +1441,18 @@ counter (ith packet of n)
             r = norm(e, 3);
             for (i = 0; i < 3; i++) e[i] /= r;
             return r + OMGE * (rs[0] * rr[1] - rs[1] * rr[0]) / CLIGHT;
+        }
+
+        public static double geodistnosagnac(double[] rs, double[] rr, ref double[] e)
+        {
+            double r;
+            int i;
+
+            if (norm(rs, 3) < RE_WGS84) return -1.0;
+            for (i = 0; i < 3; i++) e[i] = rs[i] - rr[i];
+            r = norm(e, 3);
+            for (i = 0; i < 3; i++) e[i] /= r;
+            return r;
         }
 
         /* ionosphere model ------------------------------------------------------------
@@ -1506,7 +1559,22 @@ counter (ith packet of n)
             pos[1] = r2 > 1E-12 ? Math.Atan2(r[1], r[0]) : 0.0;
             pos[2] = Math.Sqrt(r2 + z * z) - v;
         }
+        /* transform geodetic to ecef position -----------------------------------------
+* transform geodetic position to ecef position
+* args   : double *pos      I   geodetic position {lat,lon,h} (rad,m)
+*          double *r        O   ecef position {x,y,z} (m)
+* return : none
+* notes  : WGS84, ellipsoidal height
+*-----------------------------------------------------------------------------*/
+        static void pos2ecef(double[] pos, ref double[] r)
+        {
+            double sinp = Math.Sin(pos[0]), cosp = Math.Cos(pos[0]), sinl = Math.Sin(pos[1]), cosl = Math.Cos(pos[1]);
+            double e2 = FE_WGS84 * (2.0 - FE_WGS84), v = RE_WGS84 / Math.Sqrt(1.0 - e2 * sinp * sinp);
 
+            r[0] = (v + pos[2]) * cosp * cosl;
+            r[1] = (v + pos[2]) * cosp * sinl;
+            r[2] = (v * (1.0 - e2) + pos[2]) * sinp;
+        }
         /* satellite azimuth/elevation angle -------------------------------------------
 * compute satellite azimuth/elevation angle
 * args   : double *pos      I   geodetic position {lat,lon,h} (rad,m)
